@@ -52,3 +52,18 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+
+## VSCode
+.vscode/
+
+## Visual Studio
+.vs/
+
+## Thư viện
+*.pdb
+*.cache
+
+## Kết quả publish
+publish/
+dist/

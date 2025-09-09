@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.18" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BE_PHOITRON.Application\BE_PHOITRON.Application.csproj" />
+    <ProjectReference Include="..\BE_PHOITRON.Contracts\BE_PHOITRON.Contracts.csproj" />
+    <ProjectReference Include="..\BE_PHOITRON.Domain\BE_PHOITRON.Domain.csproj" />
+    <ProjectReference Include="..\BE_PHOITRON.Infrastructure\BE_PHOITRON.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

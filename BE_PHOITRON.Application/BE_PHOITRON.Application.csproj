@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Abstractions\Behaviors\**" />
+    <Compile Remove="Features\**" />
+    <EmbeddedResource Remove="Abstractions\Behaviors\**" />
+    <EmbeddedResource Remove="Features\**" />
+    <None Remove="Abstractions\Behaviors\**" />
+    <None Remove="Features\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" Version="11.*" />
+    <PackageReference Include="MediatR" Version="12.*" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BE_PHOITRON.Domain\BE_PHOITRON.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,6 @@
+@BE_PHOITRON.Api_HostAddress = http://localhost:5284
+
+GET {{BE_PHOITRON.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
