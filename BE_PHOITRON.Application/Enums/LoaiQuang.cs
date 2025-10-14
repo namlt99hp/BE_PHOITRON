@@ -8,7 +8,9 @@ namespace BE_PHOITRON.Application.Enums
 {
     public enum LoaiQuangEnum
     {
-        Mua = 1,
-        Tron = 2
+        Mua = 0,
+        Tron = 1,
+        Gang = 2,
+        Khac = 3
     }
 }

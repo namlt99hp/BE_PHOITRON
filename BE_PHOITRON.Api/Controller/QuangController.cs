@@ -1,106 +1,214 @@
 ﻿using BE_PHOITRON.Application.DTOs;
-using BE_PHOITRON.Application.ResponsesModel;
 using BE_PHOITRON.Application.ResponsesModels;
 using BE_PHOITRON.Application.Services.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace BE_PHOITRON.Api.Controller
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class QuangController(IQuangService service) : ControllerBase
+    public class QuangController(IQuangService service, IThongKeService thongKeService) : ControllerBase
     {
-
-        //[HttpGet]
-        //public async Task<IActionResult> List([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null, CancellationToken ct = default)
-        //{
-        //    var (total, data) = await service.ListAsync(page, pageSize, search, ct);
-        //    return Ok(new { total, data, page, pageSize });
-        //}
         [HttpGet("[action]")]
-        public async Task<ActionResult<PagedResult<QuangResponse>>> Search(
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20,
-        [FromQuery] string? search = null,
-        [FromQuery] string? sortBy = null,
-        [FromQuery] string? sortDir = null,
-        CancellationToken ct = default)
+        public async Task<ActionResult<ApiResponse<PagedResult<QuangResponse>>>> Search(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20,
+            [FromQuery] string? search = null,
+            [FromQuery] string? sortBy = null,
+            [FromQuery] string? sortDir = null,
+            [FromQuery] byte? loaiQuang = null,
+            CancellationToken ct = default)
         {
-            var (total, data) = await service.ListAsync(page, pageSize, search, sortBy, sortDir, ct);
-            return Ok(new PagedResult<QuangResponse>(total, page, pageSize, data));
+            var (total, data) = await service.SearchPagedAsync(page, pageSize, search, sortBy, sortDir, loaiQuang, ct);
+            return Ok(ApiResponse<PagedResult<QuangResponse>>.Ok(new PagedResult<QuangResponse>(total, page, pageSize, data)));
         }
 
+        // [HttpPost("[action]")]
+        // public async Task<ActionResult<ApiResponse<object>>> Create([FromBody] QuangCreateDto dto, CancellationToken ct)
+        // {
+        //     try
+        //     {
+        //         var id = await service.CreateAsync(dto, ct);
+        //         return Ok(ApiResponse<object>.Created(new { id }, "Tạo mới thành công"));
+        //     }
+        //     catch (InvalidOperationException ex)
+        //     {
+        //         return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
+        //     }
+        // }
 
         [HttpGet("[action]/{id:int}")]
-        public async Task<IActionResult> GetById(int id, CancellationToken ct)
-            => (await service.GetAsync(id, ct)) is { } dto ? Ok(dto) : NotFound();
+        public async Task<ActionResult<ApiResponse<QuangResponse>>> GetById(int id, CancellationToken ct)
+            => (await service.GetByIdAsync(id, ct)) is { } dto ? Ok(ApiResponse<QuangResponse>.Ok(dto)) : NotFound(ApiResponse<QuangResponse>.NotFound());
 
-        [HttpPost("[action]")]
-        public async Task<IActionResult> Create([FromBody] QuangCreateDto dto, CancellationToken ct)
-        {
-            var id = await service.CreateAsync(dto, ct);
-            return CreatedAtAction(nameof(GetById), new { id }, new { id });
-        }
+        [HttpGet("[action]/{id:int}")]
+        public async Task<ActionResult<ApiResponse<QuangDetailResponse>>> GetDetailById(int id, CancellationToken ct)
+            => (await service.GetDetailByIdAsync(id, ct)) is { } dto ? Ok(ApiResponse<QuangDetailResponse>.Ok(dto)) : NotFound(ApiResponse<QuangDetailResponse>.NotFound());
 
-        [HttpPut("[action]/{id:int}")]
-        public async Task<IActionResult> UpdateById(int id, [FromBody] QuangUpdateDto dto, CancellationToken ct)
-            => await service.UpdateAsync(id, dto, ct) ? Ok(new { success = true, id }) : NotFound();
+        // [HttpPut("[action]")]
+        // public async Task<ActionResult<ApiResponse<object>>> Update([FromBody] QuangUpdateDto dto, CancellationToken ct)
+        // {
+        //     try
+        //     {
+        //         var success = await service.UpdateAsync(dto, ct);
+        //         return success ? Ok(ApiResponse<object>.Ok(null, "Cập nhật thành công")) : NotFound(ApiResponse<object>.NotFound());
+        //     }
+        //     catch (InvalidOperationException ex)
+        //     {
+        //         return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
+        //     }
+        // }
+
+        // [HttpPost("[action]")]
+        // public async Task<ActionResult<ApiResponse<object>>> Upsert([FromBody] QuangUpsertDto dto, CancellationToken ct)
+        // {
+        //     try
+        //     {
+        //         var id = await service.UpsertAsync(dto, ct);
+        //         if (id > 0) return Ok(ApiResponse<object>.Ok(new { id }, "Thành công"));
+        //         return BadRequest(ApiResponse<object>.BadRequest("Thất bại"));
+        //     }
+        //     catch (InvalidOperationException ex)
+        //     {
+        //         return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
+        //     }
+        // }
 
         [HttpDelete("[action]/{id:int}")]
-        public async Task<IActionResult> DeleteById(int id, CancellationToken ct)
-            => await service.DeleteAsync(id, ct) ? Ok(new { success = true, id }) : NotFound();
-
-        [HttpPut]
-        [Route("[action]")]
-        public async Task<ActionResult> UpdateTPHHChoQuang(
-        [FromBody] Quang_TPHHUpdateDto dto,
-        CancellationToken ct)
+        public async Task<ActionResult<ApiResponse<object>>> SoftDelete(int id, CancellationToken ct)
         {
-            var affected = await service.UpdateTPHH(dto, ct);
-            return Ok(new
+            var success = await service.SoftDeleteAsync(id, ct);
+            return success ? Ok(ApiResponse<object>.Ok(null, "Xóa thành công")) : NotFound(ApiResponse<object>.NotFound());
+        }
+
+        [HttpGet("[action]/loai/{loaiQuang:int}")]
+        public async Task<ActionResult<ApiResponse<IReadOnlyList<QuangResponse>>>> GetByLoai(int loaiQuang, CancellationToken ct)
+        {
+            var data = await service.GetByLoaiAsync(loaiQuang, ct);
+            return Ok(ApiResponse<IReadOnlyList<QuangResponse>>.Ok(data));
+        }
+
+        [HttpGet("[action]/active")]
+        public async Task<ActionResult<ApiResponse<IReadOnlyList<QuangResponse>>>> GetActive(CancellationToken ct)
+        {
+            var data = await service.GetActiveAsync(ct);
+            return Ok(ApiResponse<IReadOnlyList<QuangResponse>>.Ok(data));
+        }
+
+        [HttpPut("[action]/{id:int}/active/{isActive:bool}")]
+        public async Task<ActionResult<ApiResponse<object>>> SetActive(int id, bool isActive, CancellationToken ct)
+        {
+            var success = await service.SetActiveAsync(id, isActive, ct);
+            return success ? Ok(ApiResponse<object>.Ok(null, "Cập nhật trạng thái thành công")) : NotFound(ApiResponse<object>.NotFound());
+        }
+
+        [HttpGet("[action]/exists/{maQuang}")]
+        public async Task<ActionResult<ApiResponse<object>>> ExistsByCode(string maQuang, CancellationToken ct)
+        {
+            var exists = await service.ExistsByCodeAsync(maQuang, ct);
+            return Ok(ApiResponse<object>.Ok(new { exists }));
+        }
+
+
+        // Batch load chemistry details for selected ores
+        [HttpPost("[action]")]
+        public async Task<ActionResult<ApiResponse<IReadOnlyList<OreChemistryBatchItem>>>> GetOreChemistryBatch([FromBody] List<int> id_Quangs, CancellationToken ct)
+        {
+            if (id_Quangs == null || id_Quangs.Count == 0)
             {
-                message = "Đồng bộ thành công.",
-                affected
-            });
+                return Ok(ApiResponse<IReadOnlyList<OreChemistryBatchItem>>.Ok([]));
+            }
+
+            var results = await service.GetOreChemistryBatchAsync(id_Quangs, ct);
+            return Ok(ApiResponse<IReadOnlyList<OreChemistryBatchItem>>.Ok(results));
         }
 
-        
-        [HttpGet]
-        [Route("[action]")]
-        public async Task<ActionResult> GetDetailQuang(
-        [FromQuery] int id,
-        CancellationToken ct)
+        // Batch: get formulas by output ore ids
+        [HttpPost("[action]")]
+        public async Task<ActionResult<ApiResponse<IReadOnlyList<FormulaByOutputOreResponse>>>> GetFormulasByOutputOreIds([FromBody] List<int> outputOreIds, CancellationToken ct)
         {
-            var result = await service.GetDetailQuang(id, ct);
-            return Ok(result);
+            if (outputOreIds == null || outputOreIds.Count == 0)
+                return Ok(ApiResponse<IReadOnlyList<FormulaByOutputOreResponse>>.Ok([]));
+
+            var results = await service.GetFormulasByOutputOreIdsAsync(outputOreIds, ct);
+            return Ok(ApiResponse<IReadOnlyList<FormulaByOutputOreResponse>>.Ok(results));
         }
 
-        
-        [HttpPost]
-        [Route("[action]")]
-        public async Task<ActionResult> UpsertQuangMua(
-        [FromBody] UpsertQuangMuaDto dto,
-        CancellationToken ct)
+
+
+        [HttpPost("[action]")]
+        public async Task<ActionResult<ApiResponse<object>>> UpsertWithThanhPhan([FromBody] QuangUpsertWithThanhPhanDto dto, CancellationToken ct)
         {
-            var result = await service.UpsertAsync(dto, ct);
-            return Ok(result);
+            try
+            {
+                var id = await service.UpsertWithThanhPhanAsync(dto, ct);
+                return Ok(ApiResponse<object>.Ok(new { id }, "Upsert quặng thành công"));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
+            }
         }
 
-        [HttpPost]
-        [Route("[action]")]
-        public async Task<ActionResult> GetOreChemistryBatch([FromBody] List<int> id_Quangs, CancellationToken ct)
+        [HttpGet("[action]/{gangId:int}")]
+        public async Task<ActionResult<ApiResponse<object>>> GetSlagIdByGang(int gangId, CancellationToken ct)
         {
-            var result = await service.getOreChemistryBatch(id_Quangs, ct);
-            return Ok(result);
+            var id = await service.GetSlagIdByGangIdAsync(gangId, ct);
+            return Ok(ApiResponse<object>.Ok(new { id }));
+        }
+
+        [HttpGet("[action]/plan/{planId:int}")]
+        public async Task<ActionResult<ApiResponse<object>>> GetGangAndSlagChemistryByPlan(int planId, CancellationToken ct)
+        {
+            try
+            {
+                var (gang, slag) = await service.GetGangAndSlagChemistryByPlanAsync(planId, ct);
+                return Ok(ApiResponse<object>.Ok(new { gang, slag }));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
+            }
+        }
+
+        // Locao bundle: gang/slag chemistry + statistics in one call
+        [HttpGet("[action]/plan/{planId:int}")]
+        public async Task<ActionResult<ApiResponse<object>>> GetLoCaoBundle(int planId, CancellationToken ct)
+        {
+            try
+            {
+                var (gang, slag) = await service.GetGangAndSlagChemistryByPlanAsync(planId, ct);
+                var statsDtos = await thongKeService.GetResultsByPlanIdAsync(planId, ct);
+                var statistics = statsDtos.Select(dto => new ThongKeResultResponse(
+                    dto.ID_ThongKe_Function, dto.FunctionCode, dto.Ten, dto.DonVi,
+                    dto.GiaTri, dto.HighlightClass, dto.ThuTu, dto.MoTa, dto.IsAutoCalculated
+                )).ToList();
+
+                return Ok(ApiResponse<object>.Ok(new { gang, slag, statistics }));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
+            }
         }
 
         [HttpPost("[action]")]
-        public async Task<IActionResult> GetByListIds([FromBody] List<int> IDs, CancellationToken ct)
+        public async Task<ActionResult<ApiResponse<object>>> UpsertKetQuaWithThanhPhan([FromBody] QuangKetQuaUpsertDto dto, CancellationToken ct)
         {
-            var result = await service.GetByListIdsAsync(IDs, ct);
-            return Ok(result);
+            try
+            {
+                var id = await service.UpsertKetQuaWithThanhPhanAsync(dto, ct);
+                return Ok(ApiResponse<object>.Ok(new { id }));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<object>.Error(ex.Message));
+            }
         }
     }
 }

@@ -1,15 +1,10 @@
 ﻿using BE_PHOITRON.Application.Abstractions;
 using BE_PHOITRON.Application.Abstractions.Repositories;
 using BE_PHOITRON.Application.DTOs;
-using BE_PHOITRON.Application.ResponsesModel;
+using BE_PHOITRON.Application.ResponsesModels;
 using BE_PHOITRON.Application.Services.Interfaces;
-using BE_PHOITRON.DataEntities;
-using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using BE_PHOITRON.Domain.Entities;
+
 
 namespace BE_PHOITRON.Application.Services
 {
@@ -20,89 +15,194 @@ namespace BE_PHOITRON.Application.Services
 
         public QuangService(IQuangRepository quangRepo, IUnitOfWork uow)
         {
-            _quangRepo = quangRepo; _uow = uow;
+            _quangRepo = quangRepo;
+            _uow = uow;
         }
 
-        public async Task<(int total, IReadOnlyList<QuangResponse> data)> ListAsync(int page, int pageSize, string? search, string? sortBy, string? sortDir, CancellationToken ct = default)
+        public async Task<(int total, IReadOnlyList<QuangResponse> data)> SearchPagedAsync(
+            int page, int pageSize, string? search = null, string? sortBy = null, string? sortDir = null, int? loaiQuang = null, CancellationToken ct = default)
         {
-            var (total, entities) = await _quangRepo.SearchPagedAsync(page, pageSize, search, sortBy, sortDir, ct);
-            var data = entities.Select(Map).ToList();
+            var (total, data) = await _quangRepo.SearchPagedAsync(page, pageSize, search, sortBy, sortDir, loaiQuang, ct);
             return (total, data);
         }
 
-        public async Task<QuangResponse?> GetAsync(int id, CancellationToken ct = default)
+        public async Task<QuangResponse?> GetByIdAsync(int id, CancellationToken ct = default)
         {
-            var e = await _quangRepo.GetByIdAsync(id, ct);
-            return e is null ? null : Map(e);
+            var entity = await _quangRepo.GetByIdAsync(id, ct);
+            return entity is null ? null : MapToResponse(entity);
+        }
+
+        public async Task<QuangDetailResponse?> GetDetailByIdAsync(int id, CancellationToken ct = default)
+        {
+            return await _quangRepo.GetDetailByIdAsync(id, ct);
         }
 
         public async Task<int> CreateAsync(QuangCreateDto dto, CancellationToken ct = default)
         {
-            if (await _quangRepo.ExistsByCodeAsync(dto.MaQuang, ct))
-                throw new InvalidOperationException("MaQuang đã tồn tại.");
+            // Validate business rules
+            if (await _quangRepo.ExistsByCodeAsync(dto.Ma_Quang, ct))
+                throw new InvalidOperationException($"Mã quặng '{dto.Ma_Quang}' đã tồn tại.");
 
-            var e = new Quang { MaQuang = dto.MaQuang, TenQuang = dto.TenQuang, Gia = dto.Gia, GhiChu = dto.GhiChu };
-            await _quangRepo.AddAsync(e, ct);
+            var entity = new Quang
+            {
+                Ma_Quang = dto.Ma_Quang,
+                Ten_Quang = dto.Ten_Quang,
+                Loai_Quang = dto.Loai_Quang,
+                Dang_Hoat_Dong = dto.Dang_Hoat_Dong,
+                Da_Xoa = false,
+                Ghi_Chu = dto.Ghi_Chu,
+                Ngay_Tao = DateTimeOffset.Now,
+                Nguoi_Tao = null 
+            };
+
+            await _quangRepo.AddAsync(entity, ct);
             await _uow.SaveChangesAsync(ct);
-            return e.ID;
+            return entity.ID;
         }
 
-        public async Task<bool> UpdateAsync(int id, QuangUpdateDto dto, CancellationToken ct = default)
+        public async Task<bool> UpdateAsync(QuangUpdateDto dto, CancellationToken ct = default)
         {
-            var e = await _quangRepo.GetByIdAsync(id, ct);
-            if (e is null) return false;
-            e.TenQuang = dto.TenQuang;
-            e.Gia = dto.Gia;
-            e.GhiChu = dto.GhiChu;
-            e.NgaySua = DateTime.UtcNow;
+            var entity = await _quangRepo.GetByIdAsync(dto.ID, ct);
+            if (entity is null) return false;
 
-            _quangRepo.Update(e);
+            // Validate business rules
+            if (await _quangRepo.ExistsByCodeAsync(dto.Ma_Quang, ct))
+            {
+                var existingEntity = await _quangRepo.FindAsync(x => x.Ma_Quang == dto.Ma_Quang, false, ct);
+                if (existingEntity.FirstOrDefault()?.ID != dto.ID)
+                    throw new InvalidOperationException($"Mã quặng '{dto.Ma_Quang}' đã tồn tại.");
+            }
+
+            entity.Ma_Quang = dto.Ma_Quang;
+            entity.Ten_Quang = dto.Ten_Quang;
+            entity.Loai_Quang = dto.Loai_Quang;
+            entity.Dang_Hoat_Dong = dto.Dang_Hoat_Dong;
+            entity.Ghi_Chu = dto.Ghi_Chu;
+            entity.Ngay_Sua = DateTimeOffset.Now;
+            entity.Nguoi_Sua = null; // TODO: Get from current user context
+
+            _quangRepo.Update(entity);
             await _uow.SaveChangesAsync(ct);
             return true;
         }
 
-        public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
+        public async Task<int> UpsertAsync(QuangUpsertDto dto, CancellationToken ct = default)
         {
-            var e = await _quangRepo.GetByIdAsync(id, ct);
-            if (e is null) return false;
-            _quangRepo.Remove(e);
+            if (dto.ID is null or 0)
+            {
+                return await CreateAsync(dto.Quang, ct);
+            }
+            else
+            {
+                var updateDto = new QuangUpdateDto(
+                    dto.ID.Value,
+                    dto.Quang.Ma_Quang,
+                    dto.Quang.Ten_Quang,
+                    dto.Quang.Loai_Quang,
+                    dto.Quang.Dang_Hoat_Dong,
+                    dto.Quang.Ghi_Chu
+                );
+                var success = await UpdateAsync(updateDto, ct);
+                return success ? dto.ID.Value : 0;
+            }
+        }
+
+        public async Task<bool> SoftDeleteAsync(int id, CancellationToken ct = default)
+        {
+            var entity = await _quangRepo.GetByIdAsync(id, ct);
+            if (entity is null) return false;
+
+            entity.Da_Xoa = true;
+            _quangRepo.Update(entity);
             await _uow.SaveChangesAsync(ct);
             return true;
         }
 
-        public async Task<int> UpdateTPHH(Quang_TPHHUpdateDto dto, CancellationToken ct = default)
+        public async Task<bool> ExistsByCodeAsync(string maQuang, CancellationToken ct = default)
+            => await _quangRepo.ExistsByCodeAsync(maQuang, ct);
+
+        public async Task<IReadOnlyList<QuangResponse>> GetByLoaiAsync(int loaiQuang, CancellationToken ct = default)
         {
-            var idQuangUpdated = await _quangRepo.UpdateTPHH(dto, ct);
+            var entities = await _quangRepo.GetByLoaiAsync(loaiQuang, ct);
+            return entities.Select(MapToResponse).ToList();
+        }
+
+        public async Task<IReadOnlyList<QuangResponse>> GetActiveAsync(CancellationToken ct = default)
+        {
+            var entities = await _quangRepo.GetActiveAsync(ct);
+            return entities.Select(MapToResponse).ToList();
+        }
+
+        public async Task<bool> SetActiveAsync(int id, bool isActive, CancellationToken ct = default)
+        {
+            var entity = await _quangRepo.GetByIdAsync(id, ct);
+            if (entity is null) return false;
+
+            entity.Dang_Hoat_Dong = isActive;
+            _quangRepo.Update(entity);
             await _uow.SaveChangesAsync(ct);
-            return idQuangUpdated;
+            return true;
         }
 
 
-        private static QuangResponse Map(Quang e) => new(e.ID, e.MaQuang, e.TenQuang, e.Gia, e.GhiChu, e.NgayTao, e.ID_NguoiTao, e.NgaySua, e.ID_NguoiSua, e.IsDeleted, e.MatKhiNung, e.LoaiQuang, e.ID_CongThucPhoi);
 
-        public async Task<QuangDetailResponse> GetDetailQuang(int id, CancellationToken ct = default)
+        public async Task<int> UpsertWithThanhPhanAsync(QuangUpsertWithThanhPhanDto dto, CancellationToken ct = default)
         {
-            var result = await _quangRepo.GetDetailQuang(id, ct);
-            return result;
+            return await _quangRepo.UpsertWithThanhPhanAsync(dto, ct);
         }
 
-        public async Task<int> UpsertAsync(UpsertQuangMuaDto dto, CancellationToken ct = default)
+        public async Task<IReadOnlyList<OreChemistryBatchItem>> GetOreChemistryBatchAsync(IReadOnlyList<int> quangIds, CancellationToken ct = default)
         {
-            var id = await _quangRepo.UpsertAsync(dto, ct);
-            await _uow.SaveChangesAsync(ct);
-            return id;
+            return await _quangRepo.GetOreChemistryBatchAsync(quangIds, ct);
         }
 
-        public async Task<List<QuangDetailResponse>> getOreChemistryBatch(List<int> id_Quangs, CancellationToken ct = default)
+        public Task<IReadOnlyList<FormulaByOutputOreResponse>> GetFormulasByOutputOreIdsAsync(IReadOnlyList<int> outputOreIds, CancellationToken ct = default)
         {
-            var result = await _quangRepo.getOreChemistryBatch(id_Quangs, ct);
-            return result;
+            return _quangRepo.GetFormulasByOutputOreIdsAsync(outputOreIds, ct);
         }
 
-        public async Task<IReadOnlyList<QuangItemResponse>> GetByListIdsAsync(List<int> IDs, CancellationToken ct = default)
+        public async Task<int?> GetSlagIdByGangIdAsync(int gangId, CancellationToken ct = default)
         {
-            var result = await _quangRepo.GetByListIdsAsync(IDs, ct);
-            return result;
+            return await _quangRepo.GetSlagIdByGangIdAsync(gangId, ct);
+        }
+
+        public async Task<(QuangDetailResponse gang, QuangDetailResponse? slag)> GetGangAndSlagChemistryAsync(int gangId, CancellationToken ct = default)
+        {
+            var gang = await _quangRepo.GetDetailByIdAsync(gangId, ct);
+            if (gang is null) throw new InvalidOperationException($"Không tìm thấy quặng gang ID={gangId}");
+
+            var slagId = await _quangRepo.GetSlagIdByGangIdAsync(gangId, ct);
+            QuangDetailResponse? slag = null;
+            if (slagId.HasValue)
+            {
+                slag = await _quangRepo.GetDetailByIdAsync(slagId.Value, ct);
+            }
+
+            return (gang, slag);
+        }
+
+        public async Task<(QuangDetailResponse? gang, QuangDetailResponse? slag)> GetGangAndSlagChemistryByPlanAsync(int planId, CancellationToken ct = default)
+        {
+            return await _quangRepo.GetGangAndSlagChemistryByPlanAsync(planId, ct);
+        }
+
+        private static QuangResponse MapToResponse(Quang entity) => new(
+            entity.ID,
+            entity.Ma_Quang,
+            entity.Ten_Quang ?? string.Empty,
+            entity.Loai_Quang,
+            entity.Dang_Hoat_Dong,
+            entity.Da_Xoa,
+            entity.Ghi_Chu,
+            entity.Ngay_Tao,
+            entity.Nguoi_Tao,
+            entity.Ngay_Sua,
+            entity.Nguoi_Sua
+        );
+
+        public async Task<int> UpsertKetQuaWithThanhPhanAsync(QuangKetQuaUpsertDto dto, CancellationToken ct = default)
+        {
+            return await _quangRepo.UpsertKetQuaWithThanhPhanAsync(dto, ct);
         }
     }
 }

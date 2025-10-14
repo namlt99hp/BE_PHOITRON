@@ -1,26 +1,35 @@
-﻿using BE_PHOITRON.Application.DTOs;
-using BE_PHOITRON.Application.ResponsesModel;
-using BE_PHOITRON.DataEntities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using BE_PHOITRON.Application.Abstractions.Base;
+using BE_PHOITRON.Application.DTOs;
+using BE_PHOITRON.Application.ResponsesModels;
+using BE_PHOITRON.Domain.Entities;
+using System.Linq.Expressions;
 
 namespace BE_PHOITRON.Application.Abstractions.Repositories
 {
-    public interface IQuangRepository : Base.IRepository<Quang>
+    public interface IQuangRepository : IRepository<Quang>
     {
-        // cac action them
-        Task<(int total, IReadOnlyList<Quang> data)> SearchPagedAsync(int page, int pageSize, string? search, string? sortBy, string? sortDir, CancellationToken ct = default);
-        Task<Quang?> GetWithGiaHienHanhAsync(int id, DateTime? taiThoiDiem, CancellationToken ct = default);
         Task<bool> ExistsByCodeAsync(string maQuang, CancellationToken ct = default);
-        Task<int> UpdateTPHH(Quang_TPHHUpdateDto dto, CancellationToken ct = default);
+        Task<IReadOnlyList<Quang>> GetByLoaiAsync(int loaiQuang, CancellationToken ct = default);
+        Task<IReadOnlyList<Quang>> GetActiveAsync(CancellationToken ct = default);
+       
+        // Search with current price enriched inside repository
+        Task<(int total, IReadOnlyList<QuangResponse> data)> SearchPagedAsync(
+            int page, int pageSize, string? search = null, string? sortBy = null, string? sortDir = null, int? loaiQuang = null, CancellationToken ct = default);
+        
+        
+        // Get quặng detail with pricing and chemical composition
+        Task<QuangDetailResponse?> GetDetailByIdAsync(int id, CancellationToken ct = default);
+        
 
-        Task<QuangDetailResponse> GetDetailQuang(int id, CancellationToken ct = default);
-        Task<int> UpsertAsync(UpsertQuangMuaDto dto, CancellationToken ct = default);
-
-        Task<List<QuangDetailResponse>> getOreChemistryBatch(List<int> id_Quangs, CancellationToken ct = default);
-        Task<IReadOnlyList<QuangItemResponse>> GetByListIdsAsync(List<int> IDs, CancellationToken ct = default);
+        // Upsert quặng gang đích (loại 2 - Gang) chỉ có thông tin cơ bản + thành phần hóa học
+        Task<int> UpsertWithThanhPhanAsync(QuangUpsertWithThanhPhanDto dto, CancellationToken ct = default);
+        
+        // Upsert Gang/Xỉ result ores with plan mapping
+        Task<int> UpsertKetQuaWithThanhPhanAsync(QuangKetQuaUpsertDto dto, CancellationToken ct = default);
+        
+        Task<IReadOnlyList<OreChemistryBatchItem>> GetOreChemistryBatchAsync(IReadOnlyList<int> quangIds, CancellationToken ct = default);
+        Task<IReadOnlyList<FormulaByOutputOreResponse>> GetFormulasByOutputOreIdsAsync(IReadOnlyList<int> outputOreIds, CancellationToken ct = default);
+        Task<int?> GetSlagIdByGangIdAsync(int gangId, CancellationToken ct = default);
+        Task<(QuangDetailResponse? gang, QuangDetailResponse? slag)> GetGangAndSlagChemistryByPlanAsync(int planId, CancellationToken ct = default);
     }
 }

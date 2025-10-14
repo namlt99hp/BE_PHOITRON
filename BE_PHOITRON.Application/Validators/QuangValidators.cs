@@ -1,31 +1,48 @@
-﻿using BE_PHOITRON.Application.DTOs;
+﻿/*
+using BE_PHOITRON.Application.DTOs;
 using FluentValidation;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BE_PHOITRON.Application.Validators
 {
-    public class QuangCreateValidator : AbstractValidator<QuangCreateDto>
+    public class QuangCreateDtoValidator : AbstractValidator<QuangCreateDto>
     {
-        public QuangCreateValidator()
+        public QuangCreateDtoValidator()
         {
-            RuleFor(x => x.MaQuang).NotEmpty().MaximumLength(50);
-            RuleFor(x => x.TenQuang).MaximumLength(150);
-            RuleFor(x => x.GhiChu).MaximumLength(500);
-            RuleFor(x => x.Gia).GreaterThanOrEqualTo(0).When(x => x.Gia.HasValue);
+            RuleFor(x => x.Ma_Quang)
+                .NotEmpty().WithMessage("Mã quặng không được để trống")
+                .MaximumLength(50).WithMessage("Mã quặng không được vượt quá 50 ký tự");
+
+            RuleFor(x => x.Ten_Quang)
+                .MaximumLength(200).WithMessage("Tên quặng không được vượt quá 200 ký tự");
+
+            RuleFor(x => x.Loai_Quang)
+                .InclusiveBetween(0, 2).WithMessage("Loại quặng phải từ 0 đến 2");
+
+            RuleFor(x => x.Ghi_Chu)
+                .MaximumLength(500).WithMessage("Ghi chú không được vượt quá 500 ký tự");
         }
     }
 
-    public class QuangUpdateValidator : AbstractValidator<QuangUpdateDto>
+    public class QuangUpdateDtoValidator : AbstractValidator<QuangUpdateDto>
     {
-        public QuangUpdateValidator()
+        public QuangUpdateDtoValidator()
         {
-            RuleFor(x => x.TenQuang).MaximumLength(150);
-            RuleFor(x => x.GhiChu).MaximumLength(500);
-            RuleFor(x => x.Gia).GreaterThanOrEqualTo(0).When(x => x.Gia.HasValue);
+            RuleFor(x => x.ID)
+                .GreaterThan(0).WithMessage("ID phải lớn hơn 0");
+
+            RuleFor(x => x.Ma_Quang)
+                .NotEmpty().WithMessage("Mã quặng không được để trống")
+                .MaximumLength(50).WithMessage("Mã quặng không được vượt quá 50 ký tự");
+
+            RuleFor(x => x.Ten_Quang)
+                .MaximumLength(200).WithMessage("Tên quặng không được vượt quá 200 ký tự");
+
+            RuleFor(x => x.Loai_Quang)
+                .InclusiveBetween(0, 2).WithMessage("Loại quặng phải từ 0 đến 2");
+
+            RuleFor(x => x.Ghi_Chu)
+                .MaximumLength(500).WithMessage("Ghi chú không được vượt quá 500 ký tự");
         }
     }
 }
+*/
