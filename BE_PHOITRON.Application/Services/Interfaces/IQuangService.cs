@@ -7,7 +7,7 @@ namespace BE_PHOITRON.Application.Services.Interfaces
     {
         // CRUD Operations
         Task<(int total, IReadOnlyList<QuangResponse> data)> SearchPagedAsync(
-            int page, int pageSize, string? search = null, string? sortBy = null, string? sortDir = null, int? loaiQuang = null, CancellationToken ct = default);
+            int page, int pageSize, string? search = null, string? sortBy = null, string? sortDir = null, int[]? loaiQuang = null, bool? isGangTarget = null, CancellationToken ct = default);
         
         Task<QuangResponse?> GetByIdAsync(int id, CancellationToken ct = default);
         Task<QuangDetailResponse?> GetDetailByIdAsync(int id, CancellationToken ct = default);

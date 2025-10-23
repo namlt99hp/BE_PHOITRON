@@ -5,7 +5,7 @@ namespace BE_PHOITRON.Application.DTOs
     public record QuangCreateDto(
         [Required] [StringLength(50)] string Ma_Quang,
         [Required] [StringLength(200)] string Ten_Quang,
-        [Required] [Range(0, 3)] int Loai_Quang, // 0=Mua, 1=Tron, 2=Gang, 3=Khac
+        [Required] int Loai_Quang,
         bool Dang_Hoat_Dong = true,
         string? Ghi_Chu = null
     );
@@ -14,7 +14,7 @@ namespace BE_PHOITRON.Application.DTOs
         [Required] int ID,
         [Required] [StringLength(50)] string Ma_Quang,
         [Required] [StringLength(200)] string Ten_Quang,
-        [Required] [Range(0, 3)] int Loai_Quang,
+        [Required] int Loai_Quang,
         bool Dang_Hoat_Dong = true,
         string? Ghi_Chu = null
     );
@@ -46,7 +46,7 @@ namespace BE_PHOITRON.Application.DTOs
         int? ID,
         [Required] [StringLength(50)] string Ma_Quang,
         [Required] [StringLength(200)] string Ten_Quang,
-        [Required] [Range(0, 4)] int Loai_Quang,
+        [Required] int Loai_Quang,
         bool Dang_Hoat_Dong = true,
         string? Ghi_Chu = null,
         [Required] IReadOnlyList<QuangThanhPhanHoaHocDto> ThanhPhanHoaHoc = null!,

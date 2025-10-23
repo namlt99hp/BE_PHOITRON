@@ -30,13 +30,53 @@ namespace BE_PHOITRON.Application.DTOs
     );
 
     // === Mix Quặng (Phối) DTOs ===
-    public record MixQuangRequestDto(
-        CongThucPhoiDto CongThucPhoi,
-        IReadOnlyList<CTP_ChiTiet_QuangDto> ChiTietQuang,
-        IReadOnlyList<CTP_RangBuoc_TPHHDto> RangBuocTPHH,
-        QuangThanhPhamDto QuangThanhPham,
-        int? Milestone = null
-    );
+public record MixQuangRequestDto(
+    CongThucPhoiDto CongThucPhoi,
+    IReadOnlyList<CTP_ChiTiet_QuangDto> ChiTietQuang,
+    IReadOnlyList<CTP_RangBuoc_TPHHDto> RangBuocTPHH,
+    QuangThanhPhamDto QuangThanhPham,
+    int? Milestone = null,
+    IReadOnlyList<CTP_BangChiPhiItemDto>? BangChiPhi = null
+);
+
+// DTO for complete mix operation with all related data
+public record MixWithCompleteDataDto(
+    CongThucPhoiDto CongThucPhoi,
+    IReadOnlyList<CTP_ChiTiet_QuangDto> ChiTietQuang,
+    IReadOnlyList<CTP_RangBuoc_TPHHDto> RangBuocTPHH,
+    QuangThanhPhamDto QuangThanhPham,
+    int? Milestone = null,
+    IReadOnlyList<CTP_BangChiPhiItemDto>? BangChiPhi = null,
+    // Additional data for complete operation
+    IReadOnlyList<ProcessParamValueDto>? ProcessParamValues = null,
+    GangSlagDataDto? GangSlagData = null,
+    IReadOnlyList<ThongKeResultUpsertDto>? ThongKeResults = null
+);
+
+public record ProcessParamValueDto(
+    int IdProcessParam,
+    decimal GiaTri,
+    int? ThuTuParam = null
+);
+
+public record GangSlagDataDto(
+    IReadOnlyList<GangSlagItemDto>? GangData = null,
+    IReadOnlyList<GangSlagItemDto>? SlagData = null
+);
+
+public record GangSlagItemDto(
+    int TphhId,
+    decimal Percentage,
+    decimal Mass,
+    string? CalcFormula = null,
+    bool IsCalculated = false
+);
+
+public record ThongKeResultUpsertDto(
+    int ID_ThongKe_Function,
+    decimal GiaTri,
+    int ThuTu
+);
 
     public record CongThucPhoiDto(
         int? ID,
@@ -77,6 +117,15 @@ namespace BE_PHOITRON.Application.DTOs
         int ID_TPHH,
         decimal Gia_Tri_PhanTram,
         int? ThuTuTPHH = null
+    );
+
+    public record CTP_BangChiPhiItemDto(
+        int ID_CongThucPhoi,
+        int? ID_Quang,
+        string LineType,
+        decimal? Tieuhao,
+        decimal? DonGiaVND,
+        decimal DonGiaUSD
     );
 
 

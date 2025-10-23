@@ -10,33 +10,35 @@ namespace BE_PHOITRON.Api.Controller
     [Route("api/[controller]")]
     public class QuangController(IQuangService service, IThongKeService thongKeService) : ControllerBase
     {
-        [HttpGet("[action]")]
+        public sealed class QuangSearchRequest
+        {
+            public int Page { get; set; } = 1;
+            public int PageSize { get; set; } = 20;
+            public string? Search { get; set; }
+            public string? SortBy { get; set; }
+            public string? SortDir { get; set; }
+            public int[]? LoaiQuang { get; set; }
+            public bool? IsGangTarget { get; set; }
+        }
+
+        [HttpPost("[action]")]
         public async Task<ActionResult<ApiResponse<PagedResult<QuangResponse>>>> Search(
-            [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 20,
-            [FromQuery] string? search = null,
-            [FromQuery] string? sortBy = null,
-            [FromQuery] string? sortDir = null,
-            [FromQuery] byte? loaiQuang = null,
+            [FromBody] QuangSearchRequest body,
             CancellationToken ct = default)
         {
-            var (total, data) = await service.SearchPagedAsync(page, pageSize, search, sortBy, sortDir, loaiQuang, ct);
+            var page = body?.Page ?? 1;
+            var pageSize = body?.PageSize ?? 20;
+            var search = body?.Search;
+            var sortBy = body?.SortBy;
+            var sortDir = body?.SortDir;
+            var loaiQuang = body?.LoaiQuang;
+            var isGangTarget = body?.IsGangTarget;
+
+            var (total, data) = await service.SearchPagedAsync(page, pageSize, search, sortBy, sortDir, loaiQuang, isGangTarget, ct);
             return Ok(ApiResponse<PagedResult<QuangResponse>>.Ok(new PagedResult<QuangResponse>(total, page, pageSize, data)));
         }
 
-        // [HttpPost("[action]")]
-        // public async Task<ActionResult<ApiResponse<object>>> Create([FromBody] QuangCreateDto dto, CancellationToken ct)
-        // {
-        //     try
-        //     {
-        //         var id = await service.CreateAsync(dto, ct);
-        //         return Ok(ApiResponse<object>.Created(new { id }, "Tạo mới thành công"));
-        //     }
-        //     catch (InvalidOperationException ex)
-        //     {
-        //         return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
-        //     }
-        // }
+        
 
         [HttpGet("[action]/{id:int}")]
         public async Task<ActionResult<ApiResponse<QuangResponse>>> GetById(int id, CancellationToken ct)
@@ -46,35 +48,7 @@ namespace BE_PHOITRON.Api.Controller
         public async Task<ActionResult<ApiResponse<QuangDetailResponse>>> GetDetailById(int id, CancellationToken ct)
             => (await service.GetDetailByIdAsync(id, ct)) is { } dto ? Ok(ApiResponse<QuangDetailResponse>.Ok(dto)) : NotFound(ApiResponse<QuangDetailResponse>.NotFound());
 
-        // [HttpPut("[action]")]
-        // public async Task<ActionResult<ApiResponse<object>>> Update([FromBody] QuangUpdateDto dto, CancellationToken ct)
-        // {
-        //     try
-        //     {
-        //         var success = await service.UpdateAsync(dto, ct);
-        //         return success ? Ok(ApiResponse<object>.Ok(null, "Cập nhật thành công")) : NotFound(ApiResponse<object>.NotFound());
-        //     }
-        //     catch (InvalidOperationException ex)
-        //     {
-        //         return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
-        //     }
-        // }
-
-        // [HttpPost("[action]")]
-        // public async Task<ActionResult<ApiResponse<object>>> Upsert([FromBody] QuangUpsertDto dto, CancellationToken ct)
-        // {
-        //     try
-        //     {
-        //         var id = await service.UpsertAsync(dto, ct);
-        //         if (id > 0) return Ok(ApiResponse<object>.Ok(new { id }, "Thành công"));
-        //         return BadRequest(ApiResponse<object>.BadRequest("Thất bại"));
-        //     }
-        //     catch (InvalidOperationException ex)
-        //     {
-        //         return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
-        //     }
-        // }
-
+        
         [HttpDelete("[action]/{id:int}")]
         public async Task<ActionResult<ApiResponse<object>>> SoftDelete(int id, CancellationToken ct)
         {

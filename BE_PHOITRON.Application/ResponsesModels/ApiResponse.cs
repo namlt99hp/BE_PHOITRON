@@ -6,6 +6,7 @@ namespace BE_PHOITRON.Application.ResponsesModels
         public static ApiResponse<T> Created(T? data = default, string? message = null) => new(true, message, 201, data);
         public static ApiResponse<T> BadRequest(string message) => new(false, message, 400, default);
         public static ApiResponse<T> NotFound(string message = "Not Found") => new(false, message, 404, default);
+        public static ApiResponse<T> Conflict(string message) => new(false, message, 409, default);
         public static ApiResponse<T> Error(string message, int statusCode = 500) => new(false, message, statusCode, default);
     }
 }

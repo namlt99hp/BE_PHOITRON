@@ -21,5 +21,6 @@ namespace BE_PHOITRON.Application.Services.Interfaces
         Task<IReadOnlyList<Cong_Thuc_PhoiResponse>> GetActiveAsync(CancellationToken ct = default);
         Task<bool> HasOverlappingPeriodAsync(int idQuangDauRa, DateTimeOffset hieuLucTu, DateTimeOffset? hieuLucDen, int? excludeId = null, CancellationToken ct = default);
         Task<bool> ValidateTotalPercentageAsync(int idCongThucPhoi, CancellationToken ct = default);
+        Task<bool> DeleteCongThucPhoiAsync(int id, CancellationToken ct = default);
     }
 }

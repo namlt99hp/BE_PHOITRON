@@ -97,7 +97,8 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                     currentPrice?.Don_Gia_VND_1Tan,
                     currentPrice?.Ty_Gia_USD_VND,
                     currentPrice?.Hieu_Luc_Tu,
-                    currentPrice?.Tien_Te
+                    currentPrice?.Tien_Te,
+                    quang.ID_Quang_Gang
                 ),
                 tpHoaHocs,
                 giaHienTai
@@ -106,17 +107,36 @@ namespace BE_PHOITRON.Infrastructure.Repositories
 
         
         public async Task<(int total, IReadOnlyList<QuangResponse> data)> SearchPagedAsync(
-            int page, int pageSize, string? search = null, string? sortBy = null, string? sortDir = null, int? loaiQuang = null, CancellationToken ct = default)
+            int page, int pageSize, string? search = null, string? sortBy = null, string? sortDir = null, int[]? loaiQuang = null, bool? isGangTarget = null, CancellationToken ct = default)
         {
             page = page < 0 ? 0 : page;
             pageSize = pageSize <= 0 || pageSize > 200 ? 20 : pageSize;
 
             IQueryable<Quang> q = _set.AsNoTracking();
 
-            q = q.Where(x => x.ID_Quang_Gang == null);
-            if (loaiQuang.HasValue)
+            // Filter by gang target if specified
+            if (isGangTarget.HasValue)
             {
-                q = q.Where(x => x.Loai_Quang == loaiQuang.Value);
+                if (isGangTarget.Value)
+                {
+                    // Only show gang target ores (ID_Quang_Gang = null)
+                    q = q.Where(x => x.ID_Quang_Gang == null);
+                }
+                else
+                {
+                    // Show all ores including result ores
+                    // No additional filtering needed
+                }
+            }
+            else
+            {
+                // Default behavior: exclude result ores (ID_Quang_Gang != null)
+                q = q.Where(x => x.ID_Quang_Gang == null);
+            }
+
+            if (loaiQuang != null && loaiQuang.Length > 0)
+            {
+                q = q.Where(x => loaiQuang.Contains(x.Loai_Quang));
             }
 
             if (!string.IsNullOrWhiteSpace(search))
@@ -176,7 +196,8 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                                     .Where(p => p.ID_Quang == x.ID && !p.Da_Xoa && p.Hieu_Luc_Tu <= now && (p.Hieu_Luc_Den == null || p.Hieu_Luc_Den >= now))
                                     .OrderByDescending(p => p.Hieu_Luc_Tu)
                                     .Select(p => p.Tien_Te)
-                                    .FirstOrDefault()
+                                    .FirstOrDefault(),
+                                    x.ID_Quang_Gang
                               ))
                               .ToListAsync(ct);
 
@@ -211,7 +232,7 @@ namespace BE_PHOITRON.Infrastructure.Repositories
             try
             {
                 Quang quangEntity;
-
+  
                 if (dto.ID.HasValue && dto.ID.Value > 0)
                 {
                     quangEntity = await _set.FindAsync(dto.ID.Value, ct) ?? throw new InvalidOperationException($"Không tìm thấy quặng với ID {dto.ID.Value}");

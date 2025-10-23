@@ -42,6 +42,9 @@ namespace BE_PHOITRON.Infrastructure.Persistence
         public DbSet<ThongKe_Function> ThongKe_Function { get; set; } = default!;
         public DbSet<PA_ThongKe_Result> PA_ThongKe_Result { get; set; } = default!;
 
+        // Cost table for mix recipe
+        public DbSet<CTP_BangChiPhi> CTP_BangChiPhi { get; set; } = default!;
+
         // public DbSet<User> Users => Set<User>();
         // public DbSet<Department> Departments => Set<Department>();
         // public DbSet<Role> Roles => Set<Role>();

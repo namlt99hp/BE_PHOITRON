@@ -29,6 +29,7 @@ namespace BE_PHOITRON.Application.Services.Interfaces
 
         // Mix (create output ore + link to plan)
         Task<int> MixAsync(MixQuangRequestDto dto, CancellationToken ct = default);
+        Task<int> MixWithCompleteDataAsync(MixWithCompleteDataDto dto, CancellationToken ct = default);
         Task<CongThucPhoiDetailResponse?> GetCongThucPhoiDetailAsync(int congThucPhoiId, CancellationToken ct = default);
         Task<PhuongAnWithFormulasResponse?> GetFormulasByPlanAsync(int idPhuongAn, CancellationToken ct = default);
         Task<PhuongAnWithMilestonesResponse?> GetFormulasByPlanWithDetailsAsync(int idPhuongAn, CancellationToken ct = default);
@@ -37,5 +38,9 @@ namespace BE_PHOITRON.Application.Services.Interfaces
         // Clone operations
         Task<int> ClonePlanAsync(ClonePlanRequestDto dto, CancellationToken ct = default);
         Task<int> CloneMilestonesAsync(CloneMilestonesRequestDto dto, CancellationToken ct = default);
+        
+        // Section data retrieval
+        Task<List<PlanSectionDto>> GetPlanSectionsByGangDichAsync(int gangDichId, bool includeThieuKet = true, bool includeLoCao = true, CancellationToken ct = default);
+        
     }
 }

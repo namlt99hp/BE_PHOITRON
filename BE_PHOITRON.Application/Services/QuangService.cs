@@ -20,9 +20,9 @@ namespace BE_PHOITRON.Application.Services
         }
 
         public async Task<(int total, IReadOnlyList<QuangResponse> data)> SearchPagedAsync(
-            int page, int pageSize, string? search = null, string? sortBy = null, string? sortDir = null, int? loaiQuang = null, CancellationToken ct = default)
+            int page, int pageSize, string? search = null, string? sortBy = null, string? sortDir = null, int[]? loaiQuang = null, bool? isGangTarget = null, CancellationToken ct = default)
         {
-            var (total, data) = await _quangRepo.SearchPagedAsync(page, pageSize, search, sortBy, sortDir, loaiQuang, ct);
+            var (total, data) = await _quangRepo.SearchPagedAsync(page, pageSize, search, sortBy, sortDir, loaiQuang, isGangTarget, ct);
             return (total, data);
         }
 
@@ -197,7 +197,13 @@ namespace BE_PHOITRON.Application.Services
             entity.Ngay_Tao,
             entity.Nguoi_Tao,
             entity.Ngay_Sua,
-            entity.Nguoi_Sua
+            entity.Nguoi_Sua,
+            null, // Gia_USD_1Tan
+            null, // Gia_VND_1Tan
+            null, // Ty_Gia_USD_VND
+            null, // Ngay_Chon_TyGia
+            null, // Tien_Te
+            entity.ID_Quang_Gang
         );
 
         public async Task<int> UpsertKetQuaWithThanhPhanAsync(QuangKetQuaUpsertDto dto, CancellationToken ct = default)

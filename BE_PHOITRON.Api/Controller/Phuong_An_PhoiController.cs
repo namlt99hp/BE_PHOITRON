@@ -54,6 +54,20 @@ namespace BE_PHOITRON.Api.Controller
             }
         }
 
+        [HttpPost("[action]")]
+        public async Task<ActionResult<ApiResponse<object>>> MixWithCompleteData([FromBody] MixWithCompleteDataDto dto, CancellationToken ct)
+        {
+            try
+            {
+                var idQuangOut = await service.MixWithCompleteDataAsync(dto, ct);
+                return Ok(ApiResponse<object>.Ok(new { idQuangOut }, "Mix với dữ liệu đầy đủ thành công"));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
+            }
+        }
+
         // Mix độc lập: không liên kết phương án. Vẫn ghi CTP_ChiTiet_Quang và CTP_ChiTiet_Quang_TPHH như luồng plan
         [HttpPost("[action]")]
         public async Task<ActionResult<ApiResponse<object>>> MixStandalone([FromBody] MixQuangRequestDto dto, CancellationToken ct)
@@ -153,6 +167,18 @@ namespace BE_PHOITRON.Api.Controller
             return Ok(ApiResponse<object>.Ok(new { id }, "Clone milestones thành công"));
         }
 
+        // Combined sections for all plans under a gang target
+        [HttpGet("[action]/gang-dich/{gangDichId:int}")]
+        public async Task<ActionResult<ApiResponse<List<PlanSectionDto>>>> GetPlanSectionsByGangDich(
+            int gangDichId, 
+            [FromQuery] bool includeThieuKet = true, 
+            [FromQuery] bool includeLoCao = true, 
+            CancellationToken ct = default)
+        {
+            var data = await service.GetPlanSectionsByGangDichAsync(gangDichId, includeThieuKet, includeLoCao, ct);
+            return Ok(ApiResponse<List<PlanSectionDto>>.Ok(data));
+        }
+
         [HttpDelete("[action]/{planId:int}")]
         public async Task<ActionResult<ApiResponse<object>>> DeletePlanWithRelatedData(int planId, CancellationToken ct)
         {
@@ -173,5 +199,6 @@ namespace BE_PHOITRON.Api.Controller
                 return BadRequest(ApiResponse<object>.BadRequest($"Lỗi khi xóa phương án: {ex.Message}"));
             }
         }
+
     }
 }

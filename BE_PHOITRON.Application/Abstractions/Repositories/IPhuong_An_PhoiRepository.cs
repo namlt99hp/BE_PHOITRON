@@ -17,6 +17,7 @@ namespace BE_PHOITRON.Application.Abstractions.Repositories
 
         // Mix: create output ore + save formula + details + constraints, and link to plan
         Task<int> MixAsync(MixQuangRequestDto dto, CancellationToken ct = default);
+        Task<int> MixWithCompleteDataAsync(MixWithCompleteDataDto dto, CancellationToken ct = default);
         Task<CongThucPhoiDetailResponse?> GetCongThucPhoiDetailAsync(int congThucPhoiId, CancellationToken ct = default);
         Task<PhuongAnWithFormulasResponse?> GetFormulasByPlanAsync(int idPhuongAn, CancellationToken ct = default);
         Task<PhuongAnWithMilestonesResponse?> GetFormulasByPlanWithDetailsAsync(int idPhuongAn, CancellationToken ct = default);
@@ -31,5 +32,8 @@ namespace BE_PHOITRON.Application.Abstractions.Repositories
         // Delete operations
         Task<bool> DeletePlanAsync(int id, CancellationToken ct = default);
         Task<bool> DeletePlanWithRelatedDataAsync(int planId, CancellationToken ct = default);
+
+        // Section data retrieval
+        Task<List<PlanSectionDto>> GetPlanSectionsByGangDichAsync(int gangDichId, bool includeThieuKet = true, bool includeLoCao = true, CancellationToken ct = default);
     }
 }

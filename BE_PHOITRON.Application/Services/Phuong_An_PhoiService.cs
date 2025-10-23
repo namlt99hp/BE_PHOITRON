@@ -170,6 +170,9 @@ namespace BE_PHOITRON.Application.Services
         public Task<int> MixAsync(MixQuangRequestDto dto, CancellationToken ct = default)
             => _phuongAnRepo.MixAsync(dto, ct);
 
+        public Task<int> MixWithCompleteDataAsync(MixWithCompleteDataDto dto, CancellationToken ct = default)
+            => _phuongAnRepo.MixWithCompleteDataAsync(dto, ct);
+
         public Task<CongThucPhoiDetailResponse?> GetCongThucPhoiDetailAsync(int congThucPhoiId, CancellationToken ct = default)
             => _phuongAnRepo.GetCongThucPhoiDetailAsync(congThucPhoiId, ct);
 
@@ -188,6 +191,12 @@ namespace BE_PHOITRON.Application.Services
 
         public Task<int> CloneMilestonesAsync(CloneMilestonesRequestDto dto, CancellationToken ct = default)
             => _phuongAnRepo.CloneMilestonesAsync(dto, ct);
+
+        public Task<List<PlanSectionDto>> GetPlanSectionsByGangDichAsync(int gangDichId, bool includeThieuKet = true, bool includeLoCao = true, CancellationToken ct = default)
+            => _phuongAnRepo.GetPlanSectionsByGangDichAsync(gangDichId, includeThieuKet, includeLoCao, ct);
+
+       
+
         private static Phuong_An_PhoiResponse MapToResponse(Phuong_An_Phoi entity) => new(
             entity.ID,
             entity.Ten_Phuong_An,

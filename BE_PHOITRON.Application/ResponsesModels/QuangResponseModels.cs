@@ -18,7 +18,8 @@ namespace BE_PHOITRON.Application.ResponsesModels
         decimal? Gia_VND_1Tan = null,
         decimal? Ty_Gia_USD_VND = null,
         DateTimeOffset? Ngay_Chon_TyGia = null,
-        string? Tien_Te = null
+        string? Tien_Te = null,
+        int? ID_Quang_Gang = null
     );
 
 // Minimal models for batch chemistry API
@@ -105,7 +106,8 @@ public record OreChemistryBatchItem(QuangMinimal quang, IReadOnlyList<TPHHOfQuan
         QuangChem QuangDauRa,
         IReadOnlyList<ChiTietQuangChem> ChiTietQuang,
         IReadOnlyList<RangBuocTPHHItem> RangBuocTPHH,
-        int? Milestone
+        int? Milestone,
+        IReadOnlyList<BangChiPhiItem> BangChiPhi
     );
 
     public record CongThucInfo(int Id, string Ma, string? Ten, string? GhiChu);
@@ -138,6 +140,15 @@ public record OreChemistryBatchItem(QuangMinimal quang, IReadOnlyList<TPHHOfQuan
     public record TPHHValue(int Id, decimal? PhanTram, int? ThuTuTPHH = null);
 
     public record RangBuocTPHHItem(int ID_TPHH, string Ma_TPHH, string? Ten_TPHH, decimal? Min_PhanTram, decimal? Max_PhanTram);
+
+    public record BangChiPhiItem(
+        int ID_CongThucPhoi,
+        int? ID_Quang,
+        string LineType,
+        decimal? Tieuhao,
+        decimal? DonGiaVND,
+        decimal DonGiaUSD
+    );
 
     // Batch get formulas by output ore ids
     public record FormulaByOutputOreResponse(

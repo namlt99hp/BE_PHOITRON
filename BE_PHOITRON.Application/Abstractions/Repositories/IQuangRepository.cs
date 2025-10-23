@@ -14,7 +14,7 @@ namespace BE_PHOITRON.Application.Abstractions.Repositories
        
         // Search with current price enriched inside repository
         Task<(int total, IReadOnlyList<QuangResponse> data)> SearchPagedAsync(
-            int page, int pageSize, string? search = null, string? sortBy = null, string? sortDir = null, int? loaiQuang = null, CancellationToken ct = default);
+            int page, int pageSize, string? search = null, string? sortBy = null, string? sortDir = null, int[]? loaiQuang = null, bool? isGangTarget = null, CancellationToken ct = default);
         
         
         // Get quặng detail with pricing and chemical composition

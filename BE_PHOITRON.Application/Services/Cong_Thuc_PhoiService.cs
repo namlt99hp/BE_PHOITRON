@@ -159,6 +159,9 @@ namespace BE_PHOITRON.Application.Services
         public async Task<bool> ValidateTotalPercentageAsync(int idCongThucPhoi, CancellationToken ct = default)
             => await _ctpChiTietQuangRepo.ValidateTotalPercentageAsync(idCongThucPhoi, ct);
 
+        public async Task<bool> DeleteCongThucPhoiAsync(int id, CancellationToken ct = default)
+            => await _congThucPhoiRepo.DeleteCongThucPhoiAsync(id, ct);
+
         private static Cong_Thuc_PhoiResponse MapToResponse(Cong_Thuc_Phoi entity) => new(
             entity.ID,
             entity.ID_Quang_DauRa,

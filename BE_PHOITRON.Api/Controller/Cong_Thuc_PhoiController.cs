@@ -77,6 +77,25 @@ namespace BE_PHOITRON.Api.Controller
             return success ? Ok(ApiResponse<object>.Ok(null, "Xóa thành công")) : NotFound(ApiResponse<object>.NotFound());
         }
 
+        [HttpDelete("[action]/{id:int}")]
+        public async Task<ActionResult<ApiResponse<object>>> DeleteCongThucPhoi(int id, CancellationToken ct)
+        {
+            try
+            {
+                var success = await service.DeleteCongThucPhoiAsync(id, ct);
+                return success ? Ok(ApiResponse<object>.Ok(null, "Xóa công thức phối và dữ liệu liên quan thành công")) : NotFound(ApiResponse<object>.NotFound("Không tìm thấy công thức phối"));
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Return 409 Conflict for business rule violations
+                return Conflict(ApiResponse<object>.Conflict(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.BadRequest($"Lỗi khi xóa công thức phối: {ex.Message}"));
+            }
+        }
+
         [HttpGet("[action]/quang-daura/{idQuangDauRa:int}")]
         public async Task<IActionResult> GetByQuangDauRa(int idQuangDauRa, CancellationToken ct)
         {

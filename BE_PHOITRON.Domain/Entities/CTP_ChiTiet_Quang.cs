@@ -29,6 +29,12 @@ namespace BE_PHOITRON.Domain.Entities
         [Column("KL_Nhan", TypeName = "decimal(18,4)")]
         public decimal? KL_Nhan { get; set; }
 
+        [Column("GiaDuKien", TypeName = "decimal(18, 2)")]
+        public decimal? GiaDuKien { get; set; }
+
+        [Column("TieuHao", TypeName = "decimal(18,4)")]
+        public decimal? TieuHao { get; set; }
+        
         // No navigation properties. Relations are handled via ID fields only.
     }
 }
