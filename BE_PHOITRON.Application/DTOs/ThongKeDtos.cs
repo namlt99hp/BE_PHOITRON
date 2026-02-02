@@ -18,7 +18,8 @@ public record ThongKeFunctionUpsertDto(
     string DonVi,
     string? HighlightClass,
     bool IsAutoCalculated,
-    bool IsActive = true
+    bool IsActive = true,
+    string? Nguoi_Tao = null
 );
 
 public record ThongKeFunctionUpsertWithIdDto(
@@ -29,7 +30,8 @@ public record ThongKeFunctionUpsertWithIdDto(
     string DonVi,
     string? HighlightClass,
     bool IsAutoCalculated,
-    bool IsActive = true
+    bool IsActive = true,
+    string? Nguoi_Tao = null
 );
 
 

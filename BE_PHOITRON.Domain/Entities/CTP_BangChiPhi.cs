@@ -11,7 +11,7 @@ namespace BE_PHOITRON.Domain.Entities
 
         // SQL column name: ID_CongThucPhoi (not nullable)
         [Column("ID_CongThucPhoi")]
-        public int ID_CongThuc_Phoi { get; set; }
+        public int ID_CongThucPhoi { get; set; }
 
         // SQL column name: ID_Quang (nullable)
         [Column("ID_Quang")]

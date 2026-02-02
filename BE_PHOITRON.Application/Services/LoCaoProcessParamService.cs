@@ -66,6 +66,9 @@ namespace BE_PHOITRON.Application.Services
         public Task SoftDeleteAsync(int id, CancellationToken ct = default)
             => _repo.SoftDeleteAsync(id, ct);
 
+        public Task DeleteAsync(int id, CancellationToken ct = default)
+            => _repo.DeleteAsync(id, ct);
+
         public Task LinkOreAsync(int id, int? oreId, CancellationToken ct = default)
             => _repo.LinkOreAsync(id, oreId, ct);
 

@@ -10,7 +10,8 @@ namespace BE_PHOITRON.Application.DTOs
         [Required] DateTimeOffset Hieu_Luc_Tu,
         string Tien_Te = "USD",
         DateTimeOffset? Hieu_Luc_Den = null,
-        string? Ghi_Chu = null
+        string? Ghi_Chu = null,
+        int? Created_By_User_ID = null
     );
 
     public record Quang_Gia_LichSuUpdateDto(
@@ -22,7 +23,8 @@ namespace BE_PHOITRON.Application.DTOs
         [Required] DateTimeOffset Hieu_Luc_Tu,
         string Tien_Te = "USD",
         DateTimeOffset? Hieu_Luc_Den = null,
-        string? Ghi_Chu = null
+        string? Ghi_Chu = null,
+        int? Created_By_User_ID = null
     );
 
     public record Quang_Gia_LichSuUpsertDto(

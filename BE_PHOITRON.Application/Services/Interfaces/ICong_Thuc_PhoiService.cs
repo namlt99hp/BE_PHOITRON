@@ -17,7 +17,7 @@ namespace BE_PHOITRON.Application.Services.Interfaces
         
         // Business Logic Operations
         Task<bool> ExistsByCodeAsync(string maCongThuc, CancellationToken ct = default);
-        Task<IReadOnlyList<Cong_Thuc_PhoiResponse>> GetByQuangDauRaAsync(int idQuangDauRa, CancellationToken ct = default);
+        Task<Cong_Thuc_PhoiResponse?> GetByQuangDauRaAsync(int idQuangDauRa, CancellationToken ct = default);
         Task<IReadOnlyList<Cong_Thuc_PhoiResponse>> GetActiveAsync(CancellationToken ct = default);
         Task<bool> HasOverlappingPeriodAsync(int idQuangDauRa, DateTimeOffset hieuLucTu, DateTimeOffset? hieuLucDen, int? excludeId = null, CancellationToken ct = default);
         Task<bool> ValidateTotalPercentageAsync(int idCongThucPhoi, CancellationToken ct = default);

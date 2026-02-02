@@ -18,7 +18,7 @@ namespace BE_PHOITRON.Domain.Entities
         public int ID { get; set; }
         public string Ma_Quang { get; set; } = string.Empty;
         public string? Ten_Quang { get; set; }
-        public int Loai_Quang { get; set; } // 0=Mua,1=Tron,2=Gang,3=Khac
+        public int Loai_Quang { get; set; } // 0=Mua,1=Tron,2=Gang,3=Khac,4=Xi,7=TronTrongPhuongAn
         public bool Dang_Hoat_Dong { get; set; } = true;
         public bool Da_Xoa { get; set; } = false;
         public string? Ghi_Chu { get; set; }
@@ -29,5 +29,6 @@ namespace BE_PHOITRON.Domain.Entities
 
         // Link Xỉ (slag) ore to its target Gang ore when applicable
         public int? ID_Quang_Gang { get; set; }
+        public bool? Is_Template { get; set; } = false;
     }
 }

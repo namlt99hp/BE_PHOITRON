@@ -11,15 +11,21 @@ namespace BE_PHOITRON.Application.Services
     {
         private readonly IPhuong_An_PhoiRepository _phuongAnRepo;
         private readonly IPA_LuaChon_CongThucRepository _paLuaChonRepo;
+        private readonly ICong_Thuc_PhoiRepository _congThucRepo;
+        private readonly IQuangRepository _quangRepo;
         private readonly IUnitOfWork _uow;
 
         public Phuong_An_PhoiService(
             IPhuong_An_PhoiRepository phuongAnRepo,
             IPA_LuaChon_CongThucRepository paLuaChonRepo,
+            ICong_Thuc_PhoiRepository congThucRepo,
+            IQuangRepository quangRepo,
             IUnitOfWork uow)
         {
             _phuongAnRepo = phuongAnRepo;
             _paLuaChonRepo = paLuaChonRepo;
+            _congThucRepo = congThucRepo;
+            _quangRepo = quangRepo;
             _uow = uow;
         }
 
@@ -49,7 +55,7 @@ namespace BE_PHOITRON.Application.Services
                 Muc_Tieu = dto.Muc_Tieu,
                 Ghi_Chu = dto.Ghi_Chu,
                 CreatedAt = DateTimeOffset.Now,
-                CreatedBy = null // TODO: Get from current user context
+                CreatedBy = dto.CreatedBy
             };
 
             await _phuongAnRepo.AddAsync(entity, ct);
@@ -85,17 +91,17 @@ namespace BE_PHOITRON.Application.Services
 
         public async Task<bool> SoftDeleteAsync(int id, CancellationToken ct = default)
         {
-            return await _phuongAnRepo.DeletePlanAsync(id, ct);
+            return await _phuongAnRepo.DeletePlanAsync(id, _congThucRepo, _quangRepo, ct);
         }
 
         public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
         {
-            return await _phuongAnRepo.DeletePlanAsync(id, ct);
+            return await _phuongAnRepo.DeletePlanAsync(id, _congThucRepo, _quangRepo, ct);
         }
 
         public async Task<bool> DeletePlanWithRelatedDataAsync(int planId, CancellationToken ct = default)
         {
-            return await _phuongAnRepo.DeletePlanWithRelatedDataAsync(planId, ct);
+            return await _phuongAnRepo.DeletePlanWithRelatedDataAsync(planId, _congThucRepo, _quangRepo, ct);
         }
 
         public async Task<IReadOnlyList<Phuong_An_PhoiResponse>> GetByQuangDichAsync(int idQuangDich, CancellationToken ct = default)
@@ -191,6 +197,9 @@ namespace BE_PHOITRON.Application.Services
 
         public Task<int> CloneMilestonesAsync(CloneMilestonesRequestDto dto, CancellationToken ct = default)
             => _phuongAnRepo.CloneMilestonesAsync(dto, ct);
+
+        public Task<int> CloneGangWithAllPlansAsync(int sourceGangId, int newGangId, ClonePlanRequestDto baseOptions, CancellationToken ct = default)
+            => _phuongAnRepo.CloneGangWithAllPlansAsync(sourceGangId, newGangId, baseOptions, ct);
 
         public Task<List<PlanSectionDto>> GetPlanSectionsByGangDichAsync(int gangDichId, bool includeThieuKet = true, bool includeLoCao = true, CancellationToken ct = default)
             => _phuongAnRepo.GetPlanSectionsByGangDichAsync(gangDichId, includeThieuKet, includeLoCao, ct);

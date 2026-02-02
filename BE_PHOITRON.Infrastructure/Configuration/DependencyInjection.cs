@@ -17,7 +17,10 @@ namespace BE_PHOITRON.Infrastructure.Configuration
         {
             // Database Context
             services.AddDbContext<AppDbContext>(opt =>
-                opt.UseSqlServer(config.GetConnectionString("Default")));
+                opt.UseSqlServer(config.GetConnectionString("MainConnectionString")));
+
+            services.AddDbContext<AuthDbContext>(opt =>
+                opt.UseSqlServer(config.GetConnectionString("AuthConnectionString")));
 
             // Base Repository and Unit of Work
             services.AddScoped(typeof(IRepository<>), typeof(BaseRepository<>));
@@ -46,6 +49,9 @@ namespace BE_PHOITRON.Infrastructure.Configuration
             
             // Statistics System
             services.AddScoped<IThongKeRepository, ThongKeRepository>();
+    
+            // Authen Repositories
+            services.AddScoped<IAuthenRepository, AuthenRepository>();
 
             // Application Services
             services.AddScoped<IQuangService, QuangService>();
@@ -61,7 +67,7 @@ namespace BE_PHOITRON.Infrastructure.Configuration
             services.AddScoped<IPA_LuaChon_CongThucService, PA_LuaChon_CongThucService>();
             services.AddScoped<ILoCaoProcessParamService, LoCaoProcessParamService>();
             services.AddScoped<IThongKeService, ThongKeService>();
-
+            services.AddScoped<IAuthenService, AuthenService>();
             return services;
         }
     }

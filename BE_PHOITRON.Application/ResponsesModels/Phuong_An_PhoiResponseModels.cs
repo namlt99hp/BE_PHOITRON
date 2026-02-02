@@ -45,7 +45,7 @@ public record ThieuKetOreComponentDto(int OreId, string MaQuang, string TenQuang
         );
 
     // Lò Cao DTOs
-    public record LoCaoOreComponentDto(int OreId, string MaQuang, string TenQuang, decimal TiLePhanTram);
+    public record LoCaoOreComponentDto(int OreId, string MaQuang, string TenQuang, decimal TiLePhanTram, int? LoaiQuang);
     
     public record LoCaoSectionDto(
         List<LoCaoOreComponentDto> Components,

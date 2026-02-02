@@ -1,8 +1,10 @@
 using BE_PHOITRON.Application.DTOs;
 using BE_PHOITRON.Application.ResponsesModels;
 using BE_PHOITRON.Application.Services.Interfaces;
+using BE_PHOITRON.Infrastructure.Shared;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace BE_PHOITRON.Api.Controller;
 
@@ -76,8 +78,25 @@ public class ThongKeController(IThongKeService thongKeService) : ControllerBase
     [HttpDelete("[action]/{id:int}")]
     public async Task<ActionResult<ApiResponse<object>>> Delete(int id, CancellationToken ct = default)
     {
-        var success = await thongKeService.DeleteFunctionAsync(id, ct);
-        return success ? Ok(ApiResponse<object>.Ok(null, "Xóa thành công")) : NotFound(ApiResponse<object>.NotFound());
+        try
+        {
+            var success = await thongKeService.DeleteFunctionAsync(id, ct);
+            return success ? Ok(ApiResponse<object>.Ok(null, "Xóa thành công")) : NotFound(ApiResponse<object>.NotFound());
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(ApiResponse<object>.Conflict(ex.Message));
+        }
+        catch (DbUpdateException ex)
+        {
+            var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+            return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+        }
+        catch (Exception ex)
+        {
+            var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+            return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+        }
     }
 
     [HttpGet("[action]/{planId:int}")]
@@ -105,12 +124,25 @@ public class ThongKeController(IThongKeService thongKeService) : ControllerBase
         }
     }
 
-    [HttpDelete("[action]/{planId:int}")]
-    public async Task<ActionResult<ApiResponse<object>>> DeleteResults(int planId, CancellationToken ct = default)
-    {
-        var success = await thongKeService.DeleteResultsByPlanIdAsync(planId, ct);
-        return success ? Ok(ApiResponse<object>.Ok(null, "Xóa kết quả thành công")) : NotFound(ApiResponse<object>.NotFound());
-    }
+    // [HttpDelete("[action]/{planId:int}")]
+    // public async Task<ActionResult<ApiResponse<object>>> DeleteResults(int planId, CancellationToken ct = default)
+    // {
+    //     try
+    //     {
+    //         var success = await thongKeService.DeleteResultsByPlanIdAsync(planId, ct);
+    //         return success ? Ok(ApiResponse<object>.Ok(null, "Xóa kết quả thành công")) : NotFound(ApiResponse<object>.NotFound());
+    //     }
+    //     catch (DbUpdateException ex)
+    //     {
+    //         var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+    //         return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+    //         return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+    //     }
+    // }
 }
 
 

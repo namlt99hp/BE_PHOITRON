@@ -1,5 +1,8 @@
 ﻿using BE_PHOITRON.Application.DTOs;
 using BE_PHOITRON.Application.ResponsesModels;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace BE_PHOITRON.Application.Services.Interfaces
 {
@@ -15,16 +18,23 @@ namespace BE_PHOITRON.Application.Services.Interfaces
         Task<bool> UpdateAsync(QuangUpdateDto dto, CancellationToken ct = default);
         Task<int> UpsertAsync(QuangUpsertDto dto, CancellationToken ct = default);
         Task<bool> SoftDeleteAsync(int id, CancellationToken ct = default);
+        Task<bool> DeleteAsync(int id, CancellationToken ct = default);
         
         // Business Logic Operations
         Task<bool> ExistsByCodeAsync(string maQuang, CancellationToken ct = default);
+        Task<bool> ExistsByCodeOrNameAsync(string maQuang, string? tenQuang, int? excludeId = null, CancellationToken ct = default);
         Task<IReadOnlyList<QuangResponse>> GetByLoaiAsync(int loaiQuang, CancellationToken ct = default);
         Task<IReadOnlyList<QuangResponse>> GetActiveAsync(CancellationToken ct = default);
         Task<bool> SetActiveAsync(int id, bool isActive, CancellationToken ct = default);
         
+        // Template & detail helpers
+        Task<QuangDetailResponse?> GetLatestGangTargetAsync(CancellationToken ct = default);
+        Task<GangTemplateConfigResponse?> GetGangTemplateConfigAsync(int? gangId = null, CancellationToken ct = default);
+        Task<GangDichConfigDetailResponse?> GetGangDichDetailWithConfigAsync(int gangId, CancellationToken ct = default);
 
         // Upsert quặng gang đích (loại 2 - Gang)
         Task<int> UpsertWithThanhPhanAsync(QuangUpsertWithThanhPhanDto dto, CancellationToken ct = default);
+        Task<int> UpsertGangDichWithConfigAsync(GangDichConfigUpsertDto dto, CancellationToken ct = default);
         
         // Upsert Gang/Xỉ result ores with plan mapping
         Task<int> UpsertKetQuaWithThanhPhanAsync(QuangKetQuaUpsertDto dto, CancellationToken ct = default);
@@ -32,7 +42,9 @@ namespace BE_PHOITRON.Application.Services.Interfaces
         Task<IReadOnlyList<OreChemistryBatchItem>> GetOreChemistryBatchAsync(IReadOnlyList<int> quangIds, CancellationToken ct = default);
         Task<IReadOnlyList<FormulaByOutputOreResponse>> GetFormulasByOutputOreIdsAsync(IReadOnlyList<int> outputOreIds, CancellationToken ct = default);
         Task<int?> GetSlagIdByGangIdAsync(int gangId, CancellationToken ct = default);
-        Task<(QuangDetailResponse gang, QuangDetailResponse? slag)> GetGangAndSlagChemistryAsync(int gangId, CancellationToken ct = default);
         Task<(QuangDetailResponse? gang, QuangDetailResponse? slag)> GetGangAndSlagChemistryByPlanAsync(int planId, CancellationToken ct = default);
+        
+        // Delete gang đích with all related data
+        Task<bool> DeleteGangDichWithRelatedDataAsync(int gangDichId, CancellationToken ct = default);
     }
 }

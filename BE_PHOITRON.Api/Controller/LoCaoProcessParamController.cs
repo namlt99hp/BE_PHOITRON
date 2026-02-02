@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using BE_PHOITRON.Domain.Entities;
 using BE_PHOITRON.Application.Services.Interfaces;
 using BE_PHOITRON.Application.ResponsesModels;
+using BE_PHOITRON.Infrastructure.Shared;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -118,38 +119,78 @@ namespace BE_PHOITRON.Api.Controller
             public int? ThuTuParam { get; set; }
         }
 
-        [HttpPost("[action]")]
-        public async Task<ActionResult<ApiResponse<object>>> UpsertValuesForPlan([FromBody] UpsertProcessParamValuesRequest request, CancellationToken ct)
-        {
-            await _svc.UpsertValuesForPlanAsync(request.PaLuaChonCongThucId, request.Items.Select(x => (x.IdProcessParam, x.GiaTri, x.ThuTuParam)).ToList(), ct);
-            return Ok(ApiResponse<object>.Ok(null, "Upsert values thành công"));
-        }
+        // [HttpPost("[action]")]
+        // public async Task<ActionResult<ApiResponse<object>>> UpsertValuesForPlan([FromBody] UpsertProcessParamValuesRequest request, CancellationToken ct)
+        // {
+        //     await _svc.UpsertValuesForPlanAsync(request.PaLuaChonCongThucId, request.Items.Select(x => (x.IdProcessParam, x.GiaTri, x.ThuTuParam)).ToList(), ct);
+        //     return Ok(ApiResponse<object>.Ok(null, "Upsert values thành công"));
+        // }
 
         // Removed GetValuesByPaId; use GetConfiguredByPaId
 
 
+        // [HttpDelete("[action]/{id:int}")]
+        // public async Task<ActionResult<ApiResponse<object>>> SoftDelete([FromRoute] int id, CancellationToken ct)
+        // {
+        //     try
+        //     {
+        //         var item = await _svc.GetByIdAsync(id, ct);
+        //         if (item == null) return NotFound(ApiResponse<object>.NotFound());
+        //         await _svc.SoftDeleteAsync(id, ct);
+        //         return Ok(ApiResponse<object>.Ok(null, "Xóa thành công"));
+        //     }
+        //     catch (DbUpdateException ex)
+        //     {
+        //         var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+        //         return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+        //         return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+        //     }
+        // }
+
         [HttpDelete("[action]/{id:int}")]
-        public async Task<ActionResult<ApiResponse<object>>> SoftDelete([FromRoute] int id, CancellationToken ct)
+        public async Task<ActionResult<ApiResponse<object>>> Delete([FromRoute] int id, CancellationToken ct)
         {
-            var item = await _svc.GetByIdAsync(id, ct);
-            if (item == null) return NotFound(ApiResponse<object>.NotFound());
-            await _svc.SoftDeleteAsync(id, ct);
-            return Ok(ApiResponse<object>.Ok(null, "Xóa thành công"));
+            try
+            {
+                var item = await _svc.GetByIdAsync(id, ct);
+                if (item == null) return NotFound(ApiResponse<object>.NotFound());
+
+                await _svc.DeleteAsync(id, ct);
+                return Ok(ApiResponse<object>.Ok(null, "Xóa thành công"));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(ApiResponse<object>.Conflict(ex.Message));
+            }
+            catch (DbUpdateException ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
+            catch (Exception ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
         }
 
-        public sealed class LinkOreRequest
-        {
-            public int? OreId { get; set; }
-        }
+        // public sealed class LinkOreRequest
+        // {
+        //     public int? OreId { get; set; }
+        // }
 
-        [HttpPut("[action]/{id:int}")]
-        public async Task<ActionResult<ApiResponse<object>>> LinkOre([FromRoute] int id, [FromBody] LinkOreRequest req, CancellationToken ct)
-        {
-            var item = await _svc.GetByIdAsync(id, ct);
-            if (item == null) return NotFound(ApiResponse<object>.NotFound());
-            await _svc.LinkOreAsync(id, req.OreId, ct);
-            return Ok(ApiResponse<object>.Ok(null, "Thiết lập quặng liên kết thành công"));
-        }
+        // [HttpPut("[action]/{id:int}")]
+        // public async Task<ActionResult<ApiResponse<object>>> LinkOre([FromRoute] int id, [FromBody] LinkOreRequest req, CancellationToken ct)
+        // {
+        //     var item = await _svc.GetByIdAsync(id, ct);
+        //     if (item == null) return NotFound(ApiResponse<object>.NotFound());
+        //     await _svc.LinkOreAsync(id, req.OreId, ct);
+        //     return Ok(ApiResponse<object>.Ok(null, "Thiết lập quặng liên kết thành công"));
+        // }
     }
 }
 

@@ -1,8 +1,10 @@
 using BE_PHOITRON.Application.DTOs;
 using BE_PHOITRON.Application.ResponsesModels;
 using BE_PHOITRON.Application.Services.Interfaces;
+using BE_PHOITRON.Infrastructure.Shared;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace BE_PHOITRON.Api.Controller
 {
@@ -69,15 +71,42 @@ namespace BE_PHOITRON.Api.Controller
             {
                 return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
             }
+            catch (DbUpdateException ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
+            catch (Exception ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
         }
 
         [HttpDelete("[action]/{id:int}")]
-        public async Task<ActionResult<ApiResponse<object>>> SoftDelete(int id, CancellationToken ct)
+        public async Task<ActionResult<ApiResponse<object>>> Delete(int id, CancellationToken ct)
         {
-            var success = await service.SoftDeleteAsync(id, ct);
-            return success
-                ? Ok(ApiResponse<object>.Ok(null, "Xóa thành công"))
-                : NotFound(ApiResponse<object>.NotFound());
+            try
+            {
+                var success = await service.DeleteAsync(id, ct);
+                return success
+                    ? Ok(ApiResponse<object>.Ok(null, "Xóa thành công"))
+                    : NotFound(ApiResponse<object>.NotFound());
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(ApiResponse<object>.Conflict(ex.Message));
+            }
+            catch (DbUpdateException ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
+            catch (Exception ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
         }
 
         [HttpGet("[action]/active")]

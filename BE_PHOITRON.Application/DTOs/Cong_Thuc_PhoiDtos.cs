@@ -12,7 +12,8 @@ namespace BE_PHOITRON.Application.DTOs
         int Phien_Ban = 1,
         [Range(0, 2)] byte Trang_Thai = 0,
         DateTimeOffset? Hieu_Luc_Den = null,
-        string? Ghi_Chu = null
+        string? Ghi_Chu = null,
+        int? Nguoi_Tao = null
     );
 
     public record Cong_Thuc_PhoiUpdateDto(
@@ -26,7 +27,8 @@ namespace BE_PHOITRON.Application.DTOs
         int Phien_Ban = 1,
         [Range(0, 2)] byte Trang_Thai = 0,
         DateTimeOffset? Hieu_Luc_Den = null,
-        string? Ghi_Chu = null
+        string? Ghi_Chu = null,
+        int? Nguoi_Tao = null
     );
 
     public record Cong_Thuc_PhoiUpsertDto(

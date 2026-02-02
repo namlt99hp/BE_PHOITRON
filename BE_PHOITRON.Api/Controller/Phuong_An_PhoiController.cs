@@ -1,8 +1,10 @@
 using BE_PHOITRON.Application.DTOs;
 using BE_PHOITRON.Application.ResponsesModels;
 using BE_PHOITRON.Application.Services.Interfaces;
+using BE_PHOITRON.Infrastructure.Shared;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace BE_PHOITRON.Api.Controller
 {
@@ -22,7 +24,6 @@ namespace BE_PHOITRON.Api.Controller
             var (total, data) = await service.SearchPagedAsync(page, pageSize, search, sortBy, sortDir, ct);
             return Ok(ApiResponse<PagedResult<Phuong_An_PhoiResponse>>.Ok(new PagedResult<Phuong_An_PhoiResponse>(total, page, pageSize, data)));
         }
-
         
 
         [HttpPost("[action]")]
@@ -38,21 +39,41 @@ namespace BE_PHOITRON.Api.Controller
             {
                 return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
             }
+            catch (DbUpdateException ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
+            catch (Exception ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
         }
 
-        [HttpPost("[action]")]
-        public async Task<ActionResult<ApiResponse<object>>> Mix([FromBody] MixQuangRequestDto dto, CancellationToken ct)
-        {
-            try
-            {
-                var idQuangOut = await service.MixAsync(dto, ct);
-                return Ok(ApiResponse<object>.Ok(new { idQuangOut }, "Mix thành công"));
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
-            }
-        }
+        // [HttpPost("[action]")]
+        // public async Task<ActionResult<ApiResponse<object>>> Mix([FromBody] MixQuangRequestDto dto, CancellationToken ct)
+        // {
+        //     try
+        //     {
+        //         var idQuangOut = await service.MixAsync(dto, ct);
+        //         return Ok(ApiResponse<object>.Ok(new { idQuangOut }, "Mix thành công"));
+        //     }
+        //     catch (InvalidOperationException ex)
+        //     {
+        //         return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
+        //     }
+        //     catch (DbUpdateException ex)
+        //     {
+        //         var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+        //         return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+        //         return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+        //     }
+        // }
 
         [HttpPost("[action]")]
         public async Task<ActionResult<ApiResponse<object>>> MixWithCompleteData([FromBody] MixWithCompleteDataDto dto, CancellationToken ct)
@@ -65,6 +86,16 @@ namespace BE_PHOITRON.Api.Controller
             catch (InvalidOperationException ex)
             {
                 return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
+            }
+            catch (DbUpdateException ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
+            catch (Exception ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
             }
         }
 
@@ -83,20 +114,56 @@ namespace BE_PHOITRON.Api.Controller
             {
                 return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
             }
+            catch (DbUpdateException ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
+            catch (Exception ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
         }
 
         [HttpDelete("[action]/{id:int}")]
         public async Task<ActionResult<ApiResponse<object>>> SoftDelete(int id, CancellationToken ct)
         {
-            var success = await service.SoftDeleteAsync(id, ct);
-            return success ? Ok(ApiResponse<object>.Ok(null, "Xóa thành công")) : NotFound(ApiResponse<object>.NotFound());
+            try
+            {
+                var success = await service.SoftDeleteAsync(id, ct);
+                return success ? Ok(ApiResponse<object>.Ok(null, "Xóa thành công")) : NotFound(ApiResponse<object>.NotFound());
+            }
+            catch (DbUpdateException ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
+            catch (Exception ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
         }
 
         [HttpDelete("[action]/{id:int}")]
         public async Task<ActionResult<ApiResponse<object>>> Delete(int id, CancellationToken ct)
         {
-            var success = await service.DeleteAsync(id, ct);
-            return success ? Ok(ApiResponse<object>.Ok(null, "Xóa thành công")) : NotFound(ApiResponse<object>.NotFound());
+            try
+            {
+                var success = await service.DeleteAsync(id, ct);
+                return success ? Ok(ApiResponse<object>.Ok(null, "Xóa thành công")) : NotFound(ApiResponse<object>.NotFound());
+            }
+            catch (DbUpdateException ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
+            catch (Exception ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
         }
 
         [HttpGet("[action]/quang-dich/{idQuangDich:int}")]
@@ -111,25 +178,25 @@ namespace BE_PHOITRON.Api.Controller
         }
 
         
-        [HttpGet("[action]/{congThucPhoiId:int}")]
-        public async Task<ActionResult<ApiResponse<CongThucPhoiDetailResponse>>> GetCongThucPhoiDetail(int congThucPhoiId, CancellationToken ct)
-        {
-            var data = await service.GetCongThucPhoiDetailAsync(congThucPhoiId, ct);
-            if (data == null)
-                return NotFound(ApiResponse<CongThucPhoiDetailResponse>.NotFound());
+        // [HttpGet("[action]/{congThucPhoiId:int}")]
+        // public async Task<ActionResult<ApiResponse<CongThucPhoiDetailResponse>>> GetCongThucPhoiDetail(int congThucPhoiId, CancellationToken ct)
+        // {
+        //     var data = await service.GetCongThucPhoiDetailAsync(congThucPhoiId, ct);
+        //     if (data == null)
+        //         return NotFound(ApiResponse<CongThucPhoiDetailResponse>.NotFound());
             
-            return Ok(ApiResponse<CongThucPhoiDetailResponse>.Ok(data));
-        }
+        //     return Ok(ApiResponse<CongThucPhoiDetailResponse>.Ok(data));
+        // }
 
-        [HttpGet("[action]/{idPhuongAn:int}")]
-        public async Task<ActionResult<ApiResponse<PhuongAnWithFormulasResponse>>> GetFormulasByPlan(int idPhuongAn, CancellationToken ct)
-        {
-            var data = await service.GetFormulasByPlanAsync(idPhuongAn, ct);
-            if (data == null)
-                return NotFound(ApiResponse<PhuongAnWithFormulasResponse>.NotFound());
+        // [HttpGet("[action]/{idPhuongAn:int}")]
+        // public async Task<ActionResult<ApiResponse<PhuongAnWithFormulasResponse>>> GetFormulasByPlan(int idPhuongAn, CancellationToken ct)
+        // {
+        //     var data = await service.GetFormulasByPlanAsync(idPhuongAn, ct);
+        //     if (data == null)
+        //         return NotFound(ApiResponse<PhuongAnWithFormulasResponse>.NotFound());
 
-            return Ok(ApiResponse<PhuongAnWithFormulasResponse>.Ok(data));
-        }
+        //     return Ok(ApiResponse<PhuongAnWithFormulasResponse>.Ok(data));
+        // }
 
         [HttpGet("[action]/{idPhuongAn:int}")]
         public async Task<ActionResult<ApiResponse<PhuongAnWithMilestonesResponse>>> GetFormulasByPlanWithDetails(int idPhuongAn, CancellationToken ct)
@@ -156,16 +223,68 @@ namespace BE_PHOITRON.Api.Controller
         [HttpPost("[action]")]
         public async Task<ActionResult<ApiResponse<object>>> ClonePlan([FromBody] ClonePlanRequestDto dto, CancellationToken ct)
         {
-            var id = await service.ClonePlanAsync(dto, ct);
-            return Ok(ApiResponse<object>.Ok(new { id }, "Clone plan thành công"));
+            try
+            {
+                var id = await service.ClonePlanAsync(dto, ct);
+                return Ok(ApiResponse<object>.Ok(new { id }, "Clone plan thành công"));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
+            }
+            catch (DbUpdateException ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
+            catch (Exception ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
         }
 
         [HttpPost("[action]")]
-        public async Task<ActionResult<ApiResponse<object>>> CloneMilestones([FromBody] CloneMilestonesRequestDto dto, CancellationToken ct)
+        public async Task<ActionResult<ApiResponse<object>>> CloneGangWithAllPlans([FromBody] CloneGangWithAllPlansRequestDto dto, CancellationToken ct)
         {
-            var id = await service.CloneMilestonesAsync(dto, ct);
-            return Ok(ApiResponse<object>.Ok(new { id }, "Clone milestones thành công"));
+            try
+            {
+                var baseOptions = new ClonePlanRequestDto(
+                    SourcePlanId: 0, // Sẽ được override trong từng lần clone
+                    NewPlanName: string.Empty, // Sẽ được override trong từng lần clone
+                    ResetRatiosToZero: dto.ResetRatiosToZero,
+                    CopySnapshots: dto.CopySnapshots,
+                    CopyDates: dto.CopyDates,
+                    CopyStatuses: dto.CopyStatuses,
+                    CloneDate: dto.CloneDate,
+                    NewGangDichId: dto.NewGangId // Quan trọng: móc vào gang mới
+                );
+                
+                var clonedCount = await service.CloneGangWithAllPlansAsync(dto.SourceGangId, dto.NewGangId, baseOptions, ct);
+                return Ok(ApiResponse<object>.Ok(new { clonedCount }, $"Clone gang và {clonedCount} phương án thành công"));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
+            }
+            catch (DbUpdateException ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
+            catch (Exception ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
         }
+
+        // [HttpPost("[action]")]
+        // public async Task<ActionResult<ApiResponse<object>>> CloneMilestones([FromBody] CloneMilestonesRequestDto dto, CancellationToken ct)
+        // {
+        //     var id = await service.CloneMilestonesAsync(dto, ct);
+        //     return Ok(ApiResponse<object>.Ok(new { id }, "Clone milestones thành công"));
+        // }
 
         // Combined sections for all plans under a gang target
         [HttpGet("[action]/gang-dich/{gangDichId:int}")]
@@ -194,9 +313,19 @@ namespace BE_PHOITRON.Api.Controller
                     return NotFound(ApiResponse<object>.NotFound("Không tìm thấy phương án để xóa"));
                 }
             }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(ApiResponse<object>.Conflict(ex.Message));
+            }
+            catch (DbUpdateException ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
             catch (Exception ex)
             {
-                return BadRequest(ApiResponse<object>.BadRequest($"Lỗi khi xóa phương án: {ex.Message}"));
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
             }
         }
 

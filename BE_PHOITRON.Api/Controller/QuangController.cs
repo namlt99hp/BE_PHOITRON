@@ -1,8 +1,10 @@
 ﻿using BE_PHOITRON.Application.DTOs;
 using BE_PHOITRON.Application.ResponsesModels;
 using BE_PHOITRON.Application.Services.Interfaces;
+using BE_PHOITRON.Infrastructure.Shared;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace BE_PHOITRON.Api.Controller
 {
@@ -38,30 +40,93 @@ namespace BE_PHOITRON.Api.Controller
             return Ok(ApiResponse<PagedResult<QuangResponse>>.Ok(new PagedResult<QuangResponse>(total, page, pageSize, data)));
         }
 
-        
-
-        [HttpGet("[action]/{id:int}")]
-        public async Task<ActionResult<ApiResponse<QuangResponse>>> GetById(int id, CancellationToken ct)
-            => (await service.GetByIdAsync(id, ct)) is { } dto ? Ok(ApiResponse<QuangResponse>.Ok(dto)) : NotFound(ApiResponse<QuangResponse>.NotFound());
+        // [HttpGet("[action]/{id:int}")]
+        // public async Task<ActionResult<ApiResponse<QuangResponse>>> GetById(int id, CancellationToken ct)
+        //     => (await service.GetByIdAsync(id, ct)) is { } dto ? Ok(ApiResponse<QuangResponse>.Ok(dto)) : NotFound(ApiResponse<QuangResponse>.NotFound());
 
         [HttpGet("[action]/{id:int}")]
         public async Task<ActionResult<ApiResponse<QuangDetailResponse>>> GetDetailById(int id, CancellationToken ct)
             => (await service.GetDetailByIdAsync(id, ct)) is { } dto ? Ok(ApiResponse<QuangDetailResponse>.Ok(dto)) : NotFound(ApiResponse<QuangDetailResponse>.NotFound());
 
         
+        // [HttpDelete("[action]/{id:int}")]
+        // public async Task<ActionResult<ApiResponse<object>>> SoftDelete(int id, CancellationToken ct)
+        // {
+        //     try
+        //     {
+        //         var success = await service.SoftDeleteAsync(id, ct);
+        //         return success ? Ok(ApiResponse<object>.Ok(null, "Xóa thành công")) : NotFound(ApiResponse<object>.NotFound());
+        //     }
+        //     catch (DbUpdateException ex)
+        //     {
+        //         var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+        //         return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+        //         return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+        //     }
+        // }
+
         [HttpDelete("[action]/{id:int}")]
-        public async Task<ActionResult<ApiResponse<object>>> SoftDelete(int id, CancellationToken ct)
+        public async Task<ActionResult<ApiResponse<object>>> Delete(int id, CancellationToken ct)
         {
-            var success = await service.SoftDeleteAsync(id, ct);
-            return success ? Ok(ApiResponse<object>.Ok(null, "Xóa thành công")) : NotFound(ApiResponse<object>.NotFound());
+            try
+            {
+                var success = await service.DeleteAsync(id, ct);
+                return success ? Ok(ApiResponse<object>.Ok(null, "Xóa thành công")) : NotFound(ApiResponse<object>.NotFound());
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(ApiResponse<object>.Conflict(ex.Message));
+            }
+            catch (DbUpdateException ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
+            catch (Exception ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
         }
 
-        [HttpGet("[action]/loai/{loaiQuang:int}")]
-        public async Task<ActionResult<ApiResponse<IReadOnlyList<QuangResponse>>>> GetByLoai(int loaiQuang, CancellationToken ct)
+        [HttpDelete("[action]/{gangDichId:int}")]
+        public async Task<ActionResult<ApiResponse<object>>> DeleteGangDich(int gangDichId, CancellationToken ct)
         {
-            var data = await service.GetByLoaiAsync(loaiQuang, ct);
-            return Ok(ApiResponse<IReadOnlyList<QuangResponse>>.Ok(data));
+            try
+            {
+                var success = await service.DeleteGangDichWithRelatedDataAsync(gangDichId, ct);
+                if (!success)
+                {
+                    return NotFound(ApiResponse<object>.NotFound("Không tìm thấy gang đích hoặc không phải là gang đích"));
+                }
+                return Ok(ApiResponse<object>.Ok(null, "Xóa gang đích và tất cả dữ liệu liên quan thành công"));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(ApiResponse<object>.Conflict(ex.Message));
+            }
+            catch (DbUpdateException ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
+            catch (Exception ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
         }
+
+        // [HttpGet("[action]/loai/{loaiQuang:int}")]
+        // public async Task<ActionResult<ApiResponse<IReadOnlyList<QuangResponse>>>> GetByLoai(int loaiQuang, CancellationToken ct)
+        // {
+        //     var data = await service.GetByLoaiAsync(loaiQuang, ct);
+        //     return Ok(ApiResponse<IReadOnlyList<QuangResponse>>.Ok(data));
+        // }
 
         [HttpGet("[action]/active")]
         public async Task<ActionResult<ApiResponse<IReadOnlyList<QuangResponse>>>> GetActive(CancellationToken ct)
@@ -70,18 +135,25 @@ namespace BE_PHOITRON.Api.Controller
             return Ok(ApiResponse<IReadOnlyList<QuangResponse>>.Ok(data));
         }
 
-        [HttpPut("[action]/{id:int}/active/{isActive:bool}")]
-        public async Task<ActionResult<ApiResponse<object>>> SetActive(int id, bool isActive, CancellationToken ct)
+        // [HttpPut("[action]/{id:int}/active/{isActive:bool}")]
+        // public async Task<ActionResult<ApiResponse<object>>> SetActive(int id, bool isActive, CancellationToken ct)
+        // {
+        //     var success = await service.SetActiveAsync(id, isActive, ct);
+        //     return success ? Ok(ApiResponse<object>.Ok(null, "Cập nhật trạng thái thành công")) : NotFound(ApiResponse<object>.NotFound());
+        // }
+
+        [HttpPost("[action]")]
+        public async Task<ActionResult<ApiResponse<object>>> CheckExists([FromBody] CheckQuangExistsRequest request, CancellationToken ct)
         {
-            var success = await service.SetActiveAsync(id, isActive, ct);
-            return success ? Ok(ApiResponse<object>.Ok(null, "Cập nhật trạng thái thành công")) : NotFound(ApiResponse<object>.NotFound());
+            var exists = await service.ExistsByCodeOrNameAsync(request.MaQuang, request.TenQuang, request.ExcludeId, ct);
+            return Ok(ApiResponse<object>.Ok(new { exists }));
         }
 
-        [HttpGet("[action]/exists/{maQuang}")]
-        public async Task<ActionResult<ApiResponse<object>>> ExistsByCode(string maQuang, CancellationToken ct)
+        public sealed class CheckQuangExistsRequest
         {
-            var exists = await service.ExistsByCodeAsync(maQuang, ct);
-            return Ok(ApiResponse<object>.Ok(new { exists }));
+            public string MaQuang { get; set; } = string.Empty;
+            public string? TenQuang { get; set; }
+            public int? ExcludeId { get; set; }
         }
 
 
@@ -123,26 +195,105 @@ namespace BE_PHOITRON.Api.Controller
             {
                 return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
             }
+            catch (DbUpdateException ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
+            catch (Exception ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
         }
 
-        [HttpGet("[action]/{gangId:int}")]
-        public async Task<ActionResult<ApiResponse<object>>> GetSlagIdByGang(int gangId, CancellationToken ct)
-        {
-            var id = await service.GetSlagIdByGangIdAsync(gangId, ct);
-            return Ok(ApiResponse<object>.Ok(new { id }));
-        }
+        // [HttpGet("[action]/{gangId:int}")]
+        // public async Task<ActionResult<ApiResponse<object>>> GetSlagIdByGang(int gangId, CancellationToken ct)
+        // {
+        //     var id = await service.GetSlagIdByGangIdAsync(gangId, ct);
+        //     return Ok(ApiResponse<object>.Ok(new { id }));
+        // }
 
-        [HttpGet("[action]/plan/{planId:int}")]
-        public async Task<ActionResult<ApiResponse<object>>> GetGangAndSlagChemistryByPlan(int planId, CancellationToken ct)
+        // [HttpGet("[action]/plan/{planId:int}")]
+        // public async Task<ActionResult<ApiResponse<object>>> GetGangAndSlagChemistryByPlan(int planId, CancellationToken ct)
+        // {
+        //     try
+        //     {
+        //         var (gang, slag) = await service.GetGangAndSlagChemistryByPlanAsync(planId, ct);
+        //         return Ok(ApiResponse<object>.Ok(new { gang, slag }));
+        //     }
+        //     catch (InvalidOperationException ex)
+        //     {
+        //         return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
+        //     }
+        // }
+
+        // [HttpGet("[action]")]
+        // public async Task<ActionResult<ApiResponse<object>>> GetLatestGangTarget(CancellationToken ct)
+        // {
+        //     try
+        //     {
+        //         var latestGang = await service.GetLatestGangTargetAsync(ct);
+        //         return Ok(ApiResponse<object>.Ok(latestGang));
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
+        //     }
+        // }
+
+        [HttpGet("[action]")]
+        public async Task<ActionResult<ApiResponse<GangTemplateConfigResponse>>> GetGangTemplateConfig([FromQuery] int? gangId, CancellationToken ct)
         {
             try
             {
-                var (gang, slag) = await service.GetGangAndSlagChemistryByPlanAsync(planId, ct);
-                return Ok(ApiResponse<object>.Ok(new { gang, slag }));
+                var template = await service.GetGangTemplateConfigAsync(gangId, ct);
+                if (template is null)
+                {
+                    return NotFound(ApiResponse<GangTemplateConfigResponse>.NotFound("Không tìm thấy gang đích phù hợp"));
+                }
+
+                return Ok(ApiResponse<GangTemplateConfigResponse>.Ok(template));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<GangTemplateConfigResponse>.BadRequest(ex.Message));
+            }
+        }
+
+        [HttpGet("[action]/{gangId:int}")]
+        public async Task<ActionResult<ApiResponse<GangDichConfigDetailResponse>>> GetGangDichDetailWithConfig(int gangId, CancellationToken ct)
+        {
+            var detail = await service.GetGangDichDetailWithConfigAsync(gangId, ct);
+            if (detail is null)
+            {
+                return NotFound(ApiResponse<GangDichConfigDetailResponse>.NotFound("Không tìm thấy gang đích hoặc không hợp lệ."));
+            }
+
+            return Ok(ApiResponse<GangDichConfigDetailResponse>.Ok(detail));
+        }
+
+        [HttpPost("[action]")]
+        public async Task<ActionResult<ApiResponse<object>>> UpsertGangDichWithConfig([FromBody] GangDichConfigUpsertDto dto, CancellationToken ct)
+        {
+            try
+            {
+                var gangId = await service.UpsertGangDichWithConfigAsync(dto, ct);
+                return Ok(ApiResponse<object>.Ok(new { id = gangId }, "Lưu gang đích và cấu hình thành công"));
             }
             catch (InvalidOperationException ex)
             {
                 return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
+            }
+            catch (DbUpdateException ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
+            catch (Exception ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
             }
         }
 
@@ -179,9 +330,19 @@ namespace BE_PHOITRON.Api.Controller
             {
                 return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
             }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
+            }
+            catch (DbUpdateException ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
             catch (Exception ex)
             {
-                return StatusCode(500, ApiResponse<object>.Error(ex.Message));
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
             }
         }
     }

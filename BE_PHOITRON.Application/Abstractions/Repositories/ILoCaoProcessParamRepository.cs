@@ -14,6 +14,7 @@ namespace BE_PHOITRON.Application.Abstractions.Repositories
         Task UpdateAsync(LoCao_ProcessParam entity, CancellationToken ct = default);
         Task<LoCao_ProcessParam> UpsertAsync(LoCao_ProcessParam entity, CancellationToken ct = default);
         Task SoftDeleteAsync(int id, CancellationToken ct = default);
+        Task DeleteAsync(int id, CancellationToken ct = default);
         Task LinkOreAsync(int id, int? oreId, CancellationToken ct = default);
 
         Task<(IReadOnlyList<LoCao_ProcessParam> Items, int Total)> SearchPagedAsync(

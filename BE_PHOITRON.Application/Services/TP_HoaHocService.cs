@@ -45,7 +45,8 @@ namespace BE_PHOITRON.Application.Services
                 Don_Vi = dto.Don_Vi,
                 Thu_Tu = dto.Thu_Tu,
                 Ghi_Chu = dto.Ghi_Chu,
-                Da_Xoa = false
+                Da_Xoa = false,
+                Nguoi_Tao = dto.Nguoi_Tao
             };
 
             await _tpHHRepo.AddAsync(entity, ct);
@@ -107,6 +108,11 @@ namespace BE_PHOITRON.Application.Services
             _tpHHRepo.Update(entity);
             await _uow.SaveChangesAsync(ct);
             return true;
+        }
+
+        public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
+        {
+            return await _tpHHRepo.DeleteAsync(id, ct);
         }
 
         public async Task<bool> ExistsByCodeAsync(string maTPHH, CancellationToken ct = default)

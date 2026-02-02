@@ -1,3 +1,4 @@
+using System;
 using BE_PHOITRON.Application.Abstractions.Repositories;
 using BE_PHOITRON.Domain.Entities;
 using BE_PHOITRON.Infrastructure.Persistence;
@@ -70,6 +71,49 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 "thu_tu" => isDesc ? query.OrderByDescending(x => x.Thu_Tu) : query.OrderBy(x => x.Thu_Tu),
                 _ => query.OrderBy(x => x.Thu_Tu)
             };
+        }
+
+        public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
+        {
+            var entity = await _set.FirstOrDefaultAsync(x => x.ID == id, ct);
+            if (entity is null) return false;
+
+            // Kiểm tra xem TP_HoaHoc có đang được sử dụng trong các bảng phụ không
+            var usedInCTPChiTietQuangTPHH = await _db.CTP_ChiTiet_Quang_TPHH
+                .AnyAsync(x => x.ID_TPHH == id, ct);
+            
+            if (usedInCTPChiTietQuangTPHH)
+            {
+                throw new InvalidOperationException("Không thể xóa thành phần hóa học này. Thành phần đang được sử dụng trong chi tiết quặng công thức phối.");
+            }
+
+            var usedInCTPRangBuocTPHH = await _db.CTP_RangBuoc_TPHH
+                .AnyAsync(x => x.ID_TPHH == id && !x.Da_Xoa, ct);
+            
+            if (usedInCTPRangBuocTPHH)
+            {
+                throw new InvalidOperationException("Không thể xóa thành phần hóa học này. Thành phần đang được sử dụng trong ràng buộc công thức phối.");
+            }
+
+            var usedInQuangTPPhanTich = await _db.Quang_TP_PhanTich
+                .AnyAsync(x => x.ID_TPHH == id, ct);
+            
+            if (usedInQuangTPPhanTich)
+            {
+                throw new InvalidOperationException("Không thể xóa thành phần hóa học này. Thành phần đang được sử dụng trong phân tích quặng.");
+            }
+
+            var usedInPASnapshotTPHH = await _db.PA_Snapshot_TPHH
+                .AnyAsync(x => x.ID_TPHH == id, ct);
+            
+            if (usedInPASnapshotTPHH)
+            {
+                throw new InvalidOperationException("Không thể xóa thành phần hóa học này. Thành phần đang được sử dụng trong snapshot phương án phối.");
+            }
+
+            _set.Remove(entity);
+            await _db.SaveChangesAsync(ct);
+            return true;
         }
     }
 }

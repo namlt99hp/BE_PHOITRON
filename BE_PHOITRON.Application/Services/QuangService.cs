@@ -11,11 +11,19 @@ namespace BE_PHOITRON.Application.Services
     public class QuangService : IQuangService
     {
         private readonly IQuangRepository _quangRepo;
+        private readonly IPhuong_An_PhoiRepository _phuongAnRepo;
+        private readonly ICong_Thuc_PhoiRepository _congThucRepo;
         private readonly IUnitOfWork _uow;
 
-        public QuangService(IQuangRepository quangRepo, IUnitOfWork uow)
+        public QuangService(
+            IQuangRepository quangRepo,
+            IPhuong_An_PhoiRepository phuongAnRepo,
+            ICong_Thuc_PhoiRepository congThucRepo,
+            IUnitOfWork uow)
         {
             _quangRepo = quangRepo;
+            _phuongAnRepo = phuongAnRepo;
+            _congThucRepo = congThucRepo;
             _uow = uow;
         }
 
@@ -52,7 +60,7 @@ namespace BE_PHOITRON.Application.Services
                 Da_Xoa = false,
                 Ghi_Chu = dto.Ghi_Chu,
                 Ngay_Tao = DateTimeOffset.Now,
-                Nguoi_Tao = null 
+                Nguoi_Tao = dto.Nguoi_Tao
             };
 
             await _quangRepo.AddAsync(entity, ct);
@@ -118,8 +126,16 @@ namespace BE_PHOITRON.Application.Services
             return true;
         }
 
+        public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
+        {
+            return await _quangRepo.DeleteQuangWithRelatedDataAsync(id, _congThucRepo, ct);
+        }
+
         public async Task<bool> ExistsByCodeAsync(string maQuang, CancellationToken ct = default)
             => await _quangRepo.ExistsByCodeAsync(maQuang, ct);
+
+        public async Task<bool> ExistsByCodeOrNameAsync(string maQuang, string? tenQuang, int? excludeId = null, CancellationToken ct = default)
+            => await _quangRepo.ExistsByCodeOrNameAsync(maQuang, tenQuang, excludeId, ct);
 
         public async Task<IReadOnlyList<QuangResponse>> GetByLoaiAsync(int loaiQuang, CancellationToken ct = default)
         {
@@ -186,6 +202,21 @@ namespace BE_PHOITRON.Application.Services
             return await _quangRepo.GetGangAndSlagChemistryByPlanAsync(planId, ct);
         }
 
+        public async Task<QuangDetailResponse?> GetLatestGangTargetAsync(CancellationToken ct = default)
+        {
+            return await _quangRepo.GetLatestGangTargetAsync(ct);
+        }
+
+        public async Task<GangTemplateConfigResponse?> GetGangTemplateConfigAsync(int? gangId = null, CancellationToken ct = default)
+        {
+            return await _quangRepo.GetGangTemplateConfigAsync(gangId, ct);
+        }
+
+        public Task<GangDichConfigDetailResponse?> GetGangDichDetailWithConfigAsync(int gangId, CancellationToken ct = default)
+        {
+            return _quangRepo.GetGangDichDetailWithConfigAsync(gangId, ct);
+        }
+
         private static QuangResponse MapToResponse(Quang entity) => new(
             entity.ID,
             entity.Ma_Quang,
@@ -209,6 +240,16 @@ namespace BE_PHOITRON.Application.Services
         public async Task<int> UpsertKetQuaWithThanhPhanAsync(QuangKetQuaUpsertDto dto, CancellationToken ct = default)
         {
             return await _quangRepo.UpsertKetQuaWithThanhPhanAsync(dto, ct);
+        }
+
+        public Task<int> UpsertGangDichWithConfigAsync(GangDichConfigUpsertDto dto, CancellationToken ct = default)
+        {
+            return _quangRepo.UpsertGangDichWithConfigAsync(dto, ct);
+        }
+
+        public async Task<bool> DeleteGangDichWithRelatedDataAsync(int gangDichId, CancellationToken ct = default)
+        {
+            return await _quangRepo.DeleteGangDichWithRelatedDataAsync(gangDichId, _phuongAnRepo, _congThucRepo, ct);
         }
     }
 }

@@ -21,5 +21,11 @@ namespace BE_PHOITRON.Domain.Entities
         // Formula calculation fields
         public string? CalcFormula { get; set; }
         public bool? IsCalculated { get; set; } = false;
+        
+        /// <summary>
+        /// Đánh dấu đây là template (Gia_Tri_PhanTram chỉ là mẫu, không phải giá trị thực tế)
+        /// Khi clone vào phương án, sẽ set Gia_Tri_PhanTram = 0 và Is_Template = false
+        /// </summary>
+        public bool? Is_Template { get; set; } = false;
     }
 }

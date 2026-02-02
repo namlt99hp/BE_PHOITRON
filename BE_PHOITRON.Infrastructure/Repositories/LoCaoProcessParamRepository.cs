@@ -74,6 +74,24 @@ namespace BE_PHOITRON.Infrastructure.Repositories
             await _db.SaveChangesAsync(ct);
         }
 
+        public async Task DeleteAsync(int id, CancellationToken ct = default)
+        {
+            var item = await _db.LoCao_ProcessParam.FirstOrDefaultAsync(x => x.ID == id, ct);
+            if (item == null) return;
+
+            // Kiểm tra xem LoCao_ProcessParam có đang được sử dụng trong bảng phụ không
+            var usedInPAProcessParamValue = await _db.PA_ProcessParamValue
+                .AnyAsync(x => x.ID_ProcessParam == id, ct);
+            
+            if (usedInPAProcessParamValue)
+            {
+                throw new InvalidOperationException("Không thể xóa tham số quy trình này. Tham số đang được sử dụng trong giá trị tham số phương án phối.");
+            }
+
+            _db.LoCao_ProcessParam.Remove(item);
+            await _db.SaveChangesAsync(ct);
+        }
+
         public async Task LinkOreAsync(int id, int? oreId, CancellationToken ct = default)
         {
             var item = await _db.LoCao_ProcessParam.FirstOrDefaultAsync(x => x.ID == id && (x.Da_Xoa == null || x.Da_Xoa == false), ct);

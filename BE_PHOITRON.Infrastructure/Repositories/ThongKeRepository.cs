@@ -1,3 +1,4 @@
+using System;
 using BE_PHOITRON.Application.Abstractions.Repositories;
 using BE_PHOITRON.Application.DTOs;
 using BE_PHOITRON.Domain.Entities;
@@ -127,7 +128,8 @@ public class ThongKeRepository : IThongKeRepository
             HighlightClass = dto.HighlightClass,
             IsAutoCalculated = dto.IsAutoCalculated,
             IsActive = dto.IsActive,
-            Ngay_Tao = DateTime.Now
+            Ngay_Tao = DateTime.Now,
+            Nguoi_Tao = dto.Nguoi_Tao
         };
 
         _db.Set<ThongKe_Function>().Add(entity);
@@ -171,6 +173,15 @@ public class ThongKeRepository : IThongKeRepository
             .FirstOrDefaultAsync(x => x.ID == id, ct);
 
         if (entity == null) return false;
+
+        // Kiểm tra xem ThongKe_Function có đang được sử dụng trong bảng phụ không
+        var usedInPAThongKeResult = await _db.PA_ThongKe_Result
+            .AnyAsync(x => x.ID_ThongKe_Function == id, ct);
+        
+        if (usedInPAThongKeResult)
+        {
+            throw new InvalidOperationException("Không thể xóa hàm thống kê này. Hàm đang được sử dụng trong kết quả thống kê phương án phối.");
+        }
 
         entity.IsActive = false; // Soft delete
         await _db.SaveChangesAsync(ct);

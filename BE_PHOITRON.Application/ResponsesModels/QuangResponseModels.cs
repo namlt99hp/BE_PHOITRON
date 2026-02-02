@@ -147,7 +147,10 @@ public record OreChemistryBatchItem(QuangMinimal quang, IReadOnlyList<TPHHOfQuan
         string LineType,
         decimal? Tieuhao,
         decimal? DonGiaVND,
-        decimal DonGiaUSD
+        decimal DonGiaUSD,
+        int? ID_Quang_DauRa = null, // Quặng đầu ra của công thức (dùng để map quặng thành phần với quặng loại 7)
+        string? Ten_Quang = null, // Tên quặng (dùng để hiển thị)
+        int? Loai_Quang = null // Loại quặng (dùng để highlight quặng loại 7)
     );
 
     // Batch get formulas by output ore ids

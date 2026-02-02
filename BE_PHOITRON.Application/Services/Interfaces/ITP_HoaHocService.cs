@@ -14,6 +14,7 @@ namespace BE_PHOITRON.Application.Services.Interfaces
         Task<bool> UpdateAsync(TP_HoaHocUpdateDto dto, CancellationToken ct = default);
         Task<int> UpsertAsync(TP_HoaHocUpsertDto dto, CancellationToken ct = default);
         Task<bool> SoftDeleteAsync(int id, CancellationToken ct = default);
+        Task<bool> DeleteAsync(int id, CancellationToken ct = default);
         
         // Business Logic Operations
         Task<bool> ExistsByCodeAsync(string maTPHH, CancellationToken ct = default);

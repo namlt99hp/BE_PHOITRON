@@ -10,7 +10,8 @@ namespace BE_PHOITRON.Application.DTOs
         int Phien_Ban = 1,
         [Range(0, 2)] byte Trang_Thai = 0,
         byte? Muc_Tieu = null,
-        string? Ghi_Chu = null
+        string? Ghi_Chu = null,
+        int? CreatedBy = null
     );
 
     public record Phuong_An_PhoiUpdateDto(
@@ -21,7 +22,8 @@ namespace BE_PHOITRON.Application.DTOs
         int Phien_Ban = 1,
         [Range(0, 2)] byte Trang_Thai = 0,
         byte? Muc_Tieu = null,
-        string? Ghi_Chu = null
+        string? Ghi_Chu = null,
+        int? CreatedBy = null
     );
 
     public record Phuong_An_PhoiUpsertDto(
@@ -36,7 +38,8 @@ public record MixQuangRequestDto(
     IReadOnlyList<CTP_RangBuoc_TPHHDto> RangBuocTPHH,
     QuangThanhPhamDto QuangThanhPham,
     int? Milestone = null,
-    IReadOnlyList<CTP_BangChiPhiItemDto>? BangChiPhi = null
+    IReadOnlyList<CTP_BangChiPhiItemDto>? BangChiPhi = null,
+    int? Nguoi_Tao = null
 );
 
 // DTO for complete mix operation with all related data
@@ -50,7 +53,8 @@ public record MixWithCompleteDataDto(
     // Additional data for complete operation
     IReadOnlyList<ProcessParamValueDto>? ProcessParamValues = null,
     GangSlagDataDto? GangSlagData = null,
-    IReadOnlyList<ThongKeResultUpsertDto>? ThongKeResults = null
+    IReadOnlyList<ThongKeResultUpsertDto>? ThongKeResults = null,
+    int? Nguoi_Tao = null
 );
 
 public record ProcessParamValueDto(
@@ -137,7 +141,8 @@ public record ThongKeResultUpsertDto(
         bool CopySnapshots = false,
         bool CopyDates = false,
         bool CopyStatuses = false,
-        DateTimeOffset? CloneDate = null
+        DateTimeOffset? CloneDate = null,
+        int? NewGangDichId = null // Nếu null thì dùng ID_Quang_Dich của source plan (backward compatible)
     );
 
     public record CloneMilestonesRequestDto(
@@ -153,5 +158,16 @@ public record ThongKeResultUpsertDto(
     public record CloneMilestoneItem(
         int? Milestone,
         IReadOnlyList<int>? FormulaIds
+    );
+
+    // Clone gang with all plans
+    public record CloneGangWithAllPlansRequestDto(
+        int SourceGangId,
+        int NewGangId,
+        bool ResetRatiosToZero = false,
+        bool CopySnapshots = false,
+        bool CopyDates = false,
+        bool CopyStatuses = false,
+        DateTimeOffset? CloneDate = null
     );
 }

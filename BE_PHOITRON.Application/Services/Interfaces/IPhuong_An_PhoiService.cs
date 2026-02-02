@@ -38,6 +38,7 @@ namespace BE_PHOITRON.Application.Services.Interfaces
         // Clone operations
         Task<int> ClonePlanAsync(ClonePlanRequestDto dto, CancellationToken ct = default);
         Task<int> CloneMilestonesAsync(CloneMilestonesRequestDto dto, CancellationToken ct = default);
+        Task<int> CloneGangWithAllPlansAsync(int sourceGangId, int newGangId, ClonePlanRequestDto baseOptions, CancellationToken ct = default);
         
         // Section data retrieval
         Task<List<PlanSectionDto>> GetPlanSectionsByGangDichAsync(int gangDichId, bool includeThieuKet = true, bool includeLoCao = true, CancellationToken ct = default);

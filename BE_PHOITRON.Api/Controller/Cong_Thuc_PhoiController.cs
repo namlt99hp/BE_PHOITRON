@@ -1,8 +1,10 @@
 using BE_PHOITRON.Application.DTOs;
 using BE_PHOITRON.Application.ResponsesModels;
 using BE_PHOITRON.Application.Services.Interfaces;
+using BE_PHOITRON.Infrastructure.Shared;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace BE_PHOITRON.Api.Controller
 {
@@ -23,59 +25,51 @@ namespace BE_PHOITRON.Api.Controller
             return Ok(ApiResponse<PagedResult<Cong_Thuc_PhoiResponse>>.Ok(new PagedResult<Cong_Thuc_PhoiResponse>(total, page, pageSize, data)));
         }
 
+
         // [HttpPost("[action]")]
-        // public async Task<IActionResult> Create([FromBody] Cong_Thuc_PhoiCreateDto dto, CancellationToken ct)
+        // public async Task<ActionResult<ApiResponse<object>>> Upsert([FromBody] Cong_Thuc_PhoiUpsertDto dto, CancellationToken ct)
         // {
         //     try
         //     {
-        //         var id = await service.CreateAsync(dto, ct);
-        //         return CreatedAtAction(nameof(GetById), new { id }, new { id });
+        //         var id = await service.UpsertAsync(dto, ct);
+        //         if (id > 0) return Ok(ApiResponse<object>.Ok(new { id }, "Thành công"));
+        //         return BadRequest(ApiResponse<object>.BadRequest("Thất bại"));
         //     }
         //     catch (InvalidOperationException ex)
         //     {
-        //         return BadRequest(new { message = ex.Message });
+        //         return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
+        //     }
+        //     catch (DbUpdateException ex)
+        //     {
+        //         var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+        //         return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+        //         return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
         //     }
         // }
 
-        // [HttpGet("[action]/{id:int}")]
-        // public async Task<IActionResult> GetById(int id, CancellationToken ct)
-        //     => (await service.GetByIdAsync(id, ct)) is { } dto ? Ok(dto) : NotFound();
-
-        // [HttpPut("[action]")]
-        // public async Task<IActionResult> Update([FromBody] Cong_Thuc_PhoiUpdateDto dto, CancellationToken ct)
+        // [HttpDelete("[action]/{id:int}")]
+        // public async Task<ActionResult<ApiResponse<object>>> SoftDelete(int id, CancellationToken ct)
         // {
         //     try
         //     {
-        //         var success = await service.UpdateAsync(dto, ct);
-        //         return success ? Ok(new { message = "Cập nhật thành công" }) : NotFound();
+        //         var success = await service.SoftDeleteAsync(id, ct);
+        //         return success ? Ok(ApiResponse<object>.Ok(null, "Xóa thành công")) : NotFound(ApiResponse<object>.NotFound());
         //     }
-        //     catch (InvalidOperationException ex)
+        //     catch (DbUpdateException ex)
         //     {
-        //         return BadRequest(new { message = ex.Message });
+        //         var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+        //         return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+        //         return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
         //     }
         // }
-
-        [HttpPost("[action]")]
-        public async Task<ActionResult<ApiResponse<object>>> Upsert([FromBody] Cong_Thuc_PhoiUpsertDto dto, CancellationToken ct)
-        {
-            try
-            {
-                var id = await service.UpsertAsync(dto, ct);
-                if (id > 0) return Ok(ApiResponse<object>.Ok(new { id }, "Thành công"));
-                return BadRequest(ApiResponse<object>.BadRequest("Thất bại"));
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(ApiResponse<object>.BadRequest(ex.Message));
-            }
-        }
-
-        [HttpDelete("[action]/{id:int}")]
-        public async Task<ActionResult<ApiResponse<object>>> SoftDelete(int id, CancellationToken ct)
-        {
-            var success = await service.SoftDeleteAsync(id, ct);
-            return success ? Ok(ApiResponse<object>.Ok(null, "Xóa thành công")) : NotFound(ApiResponse<object>.NotFound());
-        }
 
         [HttpDelete("[action]/{id:int}")]
         public async Task<ActionResult<ApiResponse<object>>> DeleteCongThucPhoi(int id, CancellationToken ct)
@@ -90,9 +84,15 @@ namespace BE_PHOITRON.Api.Controller
                 // Return 409 Conflict for business rule violations
                 return Conflict(ApiResponse<object>.Conflict(ex.Message));
             }
+            catch (DbUpdateException ex)
+            {
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
+            }
             catch (Exception ex)
             {
-                return BadRequest(ApiResponse<object>.BadRequest($"Lỗi khi xóa công thức phối: {ex.Message}"));
+                var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
+                return StatusCode(statusCode, ApiResponse<object>.Error(message, statusCode));
             }
         }
 
@@ -100,7 +100,7 @@ namespace BE_PHOITRON.Api.Controller
         public async Task<IActionResult> GetByQuangDauRa(int idQuangDauRa, CancellationToken ct)
         {
             var data = await service.GetByQuangDauRaAsync(idQuangDauRa, ct);
-            return Ok(data);
+            return data is null ? NotFound(ApiResponse<Cong_Thuc_PhoiResponse>.NotFound("Không tìm thấy công thức phối")) : Ok(ApiResponse<Cong_Thuc_PhoiResponse>.Ok(data));
         }
 
         [HttpGet("[action]/active")]
@@ -109,19 +109,5 @@ namespace BE_PHOITRON.Api.Controller
             var data = await service.GetActiveAsync(ct);
             return Ok(data);
         }
-
-        // [HttpGet("[action]/exists/{maCongThuc}")]
-        // public async Task<IActionResult> ExistsByCode(string maCongThuc, CancellationToken ct)
-        // {
-        //     var exists = await service.ExistsByCodeAsync(maCongThuc, ct);
-        //     return Ok(new { exists });
-        // }
-
-        // [HttpGet("[action]/{id:int}/validate-percentage")]
-        // public async Task<IActionResult> ValidateTotalPercentage(int id, CancellationToken ct)
-        // {
-        //     var isValid = await service.ValidateTotalPercentageAsync(id, ct);
-        //     return Ok(new { isValid, message = isValid ? "Tổng phần trăm hợp lệ" : "Tổng phần trăm không hợp lệ" });
-        // }
     }
 }

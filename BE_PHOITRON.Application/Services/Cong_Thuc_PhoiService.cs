@@ -59,7 +59,7 @@ namespace BE_PHOITRON.Application.Services
                 Hieu_Luc_Den = dto.Hieu_Luc_Den,
                 Ghi_Chu = dto.Ghi_Chu,
                 Ngay_Tao = DateTimeOffset.Now,
-                Nguoi_Tao = null // TODO: Get from current user context
+                Nguoi_Tao = dto.Nguoi_Tao
             };
 
             await _congThucPhoiRepo.AddAsync(entity, ct);
@@ -141,10 +141,10 @@ namespace BE_PHOITRON.Application.Services
         public async Task<bool> ExistsByCodeAsync(string maCongThuc, CancellationToken ct = default)
             => await _congThucPhoiRepo.ExistsByCodeAsync(maCongThuc, ct);
 
-        public async Task<IReadOnlyList<Cong_Thuc_PhoiResponse>> GetByQuangDauRaAsync(int idQuangDauRa, CancellationToken ct = default)
+        public async Task<Cong_Thuc_PhoiResponse?> GetByQuangDauRaAsync(int idQuangDauRa, CancellationToken ct = default)
         {
-            var entities = await _congThucPhoiRepo.GetByQuangDauRaAsync(idQuangDauRa, ct);
-            return entities.Select(MapToResponse).ToList();
+            var entity = await _congThucPhoiRepo.GetByQuangDauRaAsync(idQuangDauRa, ct);
+            return entity is null ? null : MapToResponse(entity);
         }
 
         public async Task<IReadOnlyList<Cong_Thuc_PhoiResponse>> GetActiveAsync(CancellationToken ct = default)
@@ -160,7 +160,7 @@ namespace BE_PHOITRON.Application.Services
             => await _ctpChiTietQuangRepo.ValidateTotalPercentageAsync(idCongThucPhoi, ct);
 
         public async Task<bool> DeleteCongThucPhoiAsync(int id, CancellationToken ct = default)
-            => await _congThucPhoiRepo.DeleteCongThucPhoiAsync(id, ct);
+            => await _congThucPhoiRepo.DeleteCongThucPhoiWithRelatedDataAsync(id, ct);
 
         private static Cong_Thuc_PhoiResponse MapToResponse(Cong_Thuc_Phoi entity) => new(
             entity.ID,

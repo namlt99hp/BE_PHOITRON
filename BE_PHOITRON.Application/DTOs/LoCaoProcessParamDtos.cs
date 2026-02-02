@@ -8,7 +8,8 @@ namespace BE_PHOITRON.Application.DTOs
     public record UpsertProcessParamValueItem(
         int IdProcessParam,
         decimal GiaTri,
-        int? ThuTuParam
+    int? ThuTuParam,
+    string? Nguoi_Tao = null
     );
 }
 

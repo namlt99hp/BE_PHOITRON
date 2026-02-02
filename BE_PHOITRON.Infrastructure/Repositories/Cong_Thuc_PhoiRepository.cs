@@ -9,17 +9,32 @@ namespace BE_PHOITRON.Infrastructure.Repositories
 {
     public class Cong_Thuc_PhoiRepository : BaseRepository<Cong_Thuc_Phoi>, ICong_Thuc_PhoiRepository
     {
-        public Cong_Thuc_PhoiRepository(AppDbContext db) : base(db) { }
+        private readonly IQuangRepository _quangRepo;
+
+        public Cong_Thuc_PhoiRepository(AppDbContext db, IQuangRepository quangRepo) : base(db)
+        {
+            _quangRepo = quangRepo;
+        }
 
         public async Task<bool> ExistsByCodeAsync(string maCongThuc, CancellationToken ct = default)
             => await _set.AnyAsync(x => x.Ma_Cong_Thuc == maCongThuc && !x.Da_Xoa, ct);
 
-        public async Task<IReadOnlyList<Cong_Thuc_Phoi>> GetByQuangDauRaAsync(int idQuangDauRa, CancellationToken ct = default)
+        public async Task<Cong_Thuc_Phoi?> GetByQuangDauRaAsync(int idQuangDauRa, CancellationToken ct = default)
         {
+            // Ưu tiên lấy công thức active (Trang_Thai = 1), nếu không có thì lấy mới nhất
+            var activeFormula = await _set.AsNoTracking()
+                .Where(x => x.ID_Quang_DauRa == idQuangDauRa && !x.Da_Xoa && x.Trang_Thai == 1)
+                .OrderByDescending(x => x.Hieu_Luc_Tu)
+                .FirstOrDefaultAsync(ct);
+            
+            if (activeFormula != null)
+                return activeFormula;
+            
+            // Nếu không có công thức active, lấy công thức mới nhất
             return await _set.AsNoTracking()
                 .Where(x => x.ID_Quang_DauRa == idQuangDauRa && !x.Da_Xoa)
                 .OrderByDescending(x => x.Hieu_Luc_Tu)
-                .ToListAsync(ct);
+                .FirstOrDefaultAsync(ct);
         }
 
         public async Task<IReadOnlyList<Cong_Thuc_Phoi>> GetActiveAsync(CancellationToken ct = default)
@@ -99,117 +114,173 @@ namespace BE_PHOITRON.Infrastructure.Repositories
             return (total, data);
         }
 
+        /// <summary>
+        /// Xóa công thức phối (delegate đến DeleteCongThucPhoiWithRelatedDataAsync để đảm bảo tính nhất quán)
+        /// </summary>
         public async Task<bool> DeleteCongThucPhoiAsync(int id, CancellationToken ct = default)
         {
-            using var transaction = await _db.Database.BeginTransactionAsync(ct);
+            return await DeleteCongThucPhoiWithRelatedDataAsync(id, ct);
+        }
+
+        public async Task<bool> DeleteCongThucPhoiWithRelatedDataAsync(int id, CancellationToken ct = default)
+        {
+            // Kiểm tra xem đã có transaction chưa
+            var hasExistingTransaction = _db.Database.CurrentTransaction != null;
+            Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction = null;
+            
+            if (!hasExistingTransaction)
+            {
+                transaction = await _db.Database.BeginTransactionAsync(ct);
+            }
+            
             try
             {
-                // 1. Get the Cong_Thuc_Phoi entity
-                var congThucPhoi = await _set.FirstOrDefaultAsync(x => x.ID == id && !x.Da_Xoa, ct);
-                if (congThucPhoi == null)
-                    return false;
+                var congThucPhoi = await _set.FirstOrDefaultAsync(x => x.ID == id, ct);
+                if (congThucPhoi == null) return false;
 
-                // 2. Check if output ore is being used in other formulas as input ore
                 var outputQuangId = congThucPhoi.ID_Quang_DauRa;
+
+                // 0. Kiểm tra quặng đầu ra có đang được dùng ở công thức phối khác không
+                // Check trong bảng CTP_ChiTiet_Quang xem ID_Quang_DauRa có nằm trong list ID_Quang_DauVao của công thức phối nào không
                 if (outputQuangId > 0)
                 {
-                    var isUsedInOtherFormulas = await _db.Set<CTP_ChiTiet_Quang>()
-                        .AnyAsync(x => x.ID_Quang_DauVao == outputQuangId && 
-                                      x.ID_Cong_Thuc_Phoi != id && 
-                                      !x.Da_Xoa, ct);
+                    // Lấy tất cả các công thức phối có sử dụng quặng đầu ra này làm quặng đầu vào
+                    var usedInOtherFormulas = await _db.Set<CTP_ChiTiet_Quang>()
+                        .Where(ctq => ctq.ID_Quang_DauVao == outputQuangId  // Quặng đầu ra được dùng như đầu vào
+                                   && ctq.ID_Cong_Thuc_Phoi != id            // Loại trừ công thức đang xóa
+                                   && !ctq.Da_Xoa)                            // Chỉ lấy record chưa xóa
+                        .Join(_db.Set<Cong_Thuc_Phoi>()
+                                .Where(ctp => !ctp.Da_Xoa),                   // Chỉ lấy công thức chưa xóa
+                            ctq => ctq.ID_Cong_Thuc_Phoi,
+                            ctp => ctp.ID,
+                            (ctq, ctp) => new { FormulaId = ctp.ID, FormulaCode = ctp.Ma_Cong_Thuc })
+                        .Distinct()
+                        .ToListAsync(ct);
                     
-                    if (isUsedInOtherFormulas)
+                    if (usedInOtherFormulas.Any())
                     {
-                        // Rollback transaction and throw exception with specific message
-                        await transaction.RollbackAsync(ct);
-                        throw new InvalidOperationException($"Không thể xóa công thức phối. Quặng đầu ra (ID: {outputQuangId}) đang được sử dụng trong công thức phối khác.");
+                        var formulaCodes = string.Join(", ", usedInOtherFormulas.Select(x => x.FormulaCode ?? $"ID:{x.FormulaId}"));
+                        if (transaction != null)
+                        {
+                            await transaction.RollbackAsync(ct);
+                        }
+                        throw new InvalidOperationException($"Không thể xóa công thức phối. Quặng đầu ra (ID: {outputQuangId}) đang được sử dụng trong công thức phối khác: {formulaCodes}");
                     }
                 }
 
-                // 3. Delete CTP_ChiTiet_Quang (Formula Detail Ores)
+                // 1. Xóa CTP_ChiTiet_Quang_TPHH
+                var chiTietQuangIds = await _db.Set<CTP_ChiTiet_Quang>()
+                    .Where(x => x.ID_Cong_Thuc_Phoi == id)
+                    .Select(x => x.ID)
+                    .ToListAsync(ct);
+                
+                if (chiTietQuangIds.Any())
+                {
+                    var chiTietQuangTphh = await _db.Set<CTP_ChiTiet_Quang_TPHH>()
+                        .Where(x => chiTietQuangIds.Contains(x.ID_CTP_ChiTiet_Quang))
+                        .ToListAsync(ct);
+                    if (chiTietQuangTphh.Any())
+                    {
+                        _db.Set<CTP_ChiTiet_Quang_TPHH>().RemoveRange(chiTietQuangTphh);
+                    }
+                }
+
+                // 2. Xóa CTP_ChiTiet_Quang
                 var chiTietQuang = await _db.Set<CTP_ChiTiet_Quang>()
-                    .Where(x => x.ID_Cong_Thuc_Phoi == id && !x.Da_Xoa)
+                    .Where(x => x.ID_Cong_Thuc_Phoi == id)
                     .ToListAsync(ct);
                 if (chiTietQuang.Any())
                 {
                     _db.Set<CTP_ChiTiet_Quang>().RemoveRange(chiTietQuang);
+                    await _db.SaveChangesAsync(ct);
                 }
 
-                // 4. Delete CTP_ChiTiet_Quang_TPHH (Formula Detail Ore Chemical Components)
-                var chiTietQuangTphh = await _db.Set<CTP_ChiTiet_Quang_TPHH>()
-                    .Where(x => chiTietQuang.Select(c => c.ID).Contains(x.ID_CTP_ChiTiet_Quang) && !x.Da_Xoa)
-                    .ToListAsync(ct);
-                if (chiTietQuangTphh.Any())
-                {
-                    _db.Set<CTP_ChiTiet_Quang_TPHH>().RemoveRange(chiTietQuangTphh);
-                }
-
-                // 5. Delete CTP_RangBuoc_TPHH (Formula Chemical Component Constraints)
+                // 3. Xóa CTP_RangBuoc_TPHH
                 var rangBuocTphh = await _db.Set<CTP_RangBuoc_TPHH>()
-                    .Where(x => x.ID_Cong_Thuc_Phoi == id && !x.Da_Xoa)
+                    .Where(x => x.ID_Cong_Thuc_Phoi == id)
                     .ToListAsync(ct);
                 if (rangBuocTphh.Any())
                 {
                     _db.Set<CTP_RangBuoc_TPHH>().RemoveRange(rangBuocTphh);
                 }
 
-                // 6. Delete PA_LuaChon_CongThuc (Plan Formula Selections)
+                // 4. Xóa CTP_BangChiPhi
+                var bangChiPhi = await _db.Set<CTP_BangChiPhi>()
+                    .Where(x => x.ID_CongThucPhoi == id)
+                    .ToListAsync(ct);
+                if (bangChiPhi.Any())
+                {
+                    _db.Set<CTP_BangChiPhi>().RemoveRange(bangChiPhi);
+                }
+
+                // 5. Xóa PA_LuaChon_CongThuc
                 var luaChonCongThuc = await _db.Set<PA_LuaChon_CongThuc>()
-                    .Where(x => x.ID_Cong_Thuc_Phoi == id && !x.Da_Xoa)
+                    .Where(x => x.ID_Cong_Thuc_Phoi == id)
                     .ToListAsync(ct);
                 if (luaChonCongThuc.Any())
                 {
                     _db.Set<PA_LuaChon_CongThuc>().RemoveRange(luaChonCongThuc);
                 }
 
-                // 7. Delete Quang_TP_PhanTich (Ore Chemical Analysis) for output ore only
-                if (outputQuangId > 0)
-                {
-                    var quangTpPhanTich = await _db.Set<Quang_TP_PhanTich>()
-                        .Where(x => x.ID_Quang == outputQuangId && !x.Da_Xoa)
-                        .ToListAsync(ct);
-                    if (quangTpPhanTich.Any())
-                    {
-                        _db.Set<Quang_TP_PhanTich>().RemoveRange(quangTpPhanTich);
-                    }
-                }
+                // 6. Xóa Cong_Thuc_Phoi (dùng entity đã load ban đầu để tránh tracking conflict)
+                _set.Remove(congThucPhoi);
 
-                // 8. Delete Quang_Gia_LichSu (Ore Price History) for output ore only
+                // 7. Xóa Quang với ID = ID_Quang_DauRa (xóa trực tiếp để tránh vòng lặp)
+                // Không check công thức phối vì đây là quặng đầu ra của công thức đang xóa
                 if (outputQuangId > 0)
                 {
-                    var quangGiaLichSu = await _db.Set<Quang_Gia_LichSu>()
-                        .Where(x => x.ID_Quang == outputQuangId && !x.Da_Xoa)
-                        .ToListAsync(ct);
-                    if (quangGiaLichSu.Any())
-                    {
-                        _db.Set<Quang_Gia_LichSu>().RemoveRange(quangGiaLichSu);
-                    }
-                }
-
-                // 9. Delete Quang (Output Ore) only
-                if (outputQuangId > 0)
-                {
-                    var outputQuang = await _db.Set<Quang>()
-                        .FirstOrDefaultAsync(x => x.ID == outputQuangId && !x.Da_Xoa, ct);
+                    var outputQuang = await _db.Set<Quang>().FirstOrDefaultAsync(x => x.ID == outputQuangId, ct);
                     if (outputQuang != null)
                     {
+                        // Xóa Quang_TP_PhanTich
+                        var quangTPPhanTich = await _db.Set<Quang_TP_PhanTich>()
+                            .Where(x => x.ID_Quang == outputQuangId)
+                            .ToListAsync(ct);
+                        if (quangTPPhanTich.Any())
+                        {
+                            _db.Set<Quang_TP_PhanTich>().RemoveRange(quangTPPhanTich);
+                        }
+
+                        // Xóa Quang_Gia_LichSu
+                        var quangGiaLichSu = await _db.Set<Quang_Gia_LichSu>()
+                            .Where(x => x.ID_Quang == outputQuangId)
+                            .ToListAsync(ct);
+                        if (quangGiaLichSu.Any())
+                        {
+                            _db.Set<Quang_Gia_LichSu>().RemoveRange(quangGiaLichSu);
+                        }
+
+                        // Xóa Quang
                         _db.Set<Quang>().Remove(outputQuang);
                     }
                 }
 
-                // 10. Finally delete the Cong_Thuc_Phoi itself
-                _db.Set<Cong_Thuc_Phoi>().Remove(congThucPhoi);
-
-                // Save all changes
                 await _db.SaveChangesAsync(ct);
-                await transaction.CommitAsync(ct);
+                
+                // Chỉ commit nếu đây là transaction do hàm này tạo
+                if (transaction != null)
+                {
+                    await transaction.CommitAsync(ct);
+                }
 
                 return true;
             }
             catch
             {
-                await transaction.RollbackAsync(ct);
+                // Chỉ rollback nếu đây là transaction do hàm này tạo
+                if (transaction != null)
+                {
+                    await transaction.RollbackAsync(ct);
+                }
                 throw;
+            }
+            finally
+            {
+                // Dispose transaction nếu đây là transaction do hàm này tạo
+                if (transaction != null)
+                {
+                    await transaction.DisposeAsync();
+                }
             }
         }
     }

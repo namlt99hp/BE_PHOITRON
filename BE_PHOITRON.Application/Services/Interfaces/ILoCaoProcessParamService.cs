@@ -14,6 +14,7 @@ namespace BE_PHOITRON.Application.Services.Interfaces
         Task UpdateAsync(int id, LoCao_ProcessParam payload, CancellationToken ct = default);
         Task<LoCao_ProcessParam> UpsertAsync(LoCao_ProcessParam entity, CancellationToken ct = default);
         Task SoftDeleteAsync(int id, CancellationToken ct = default);
+        Task DeleteAsync(int id, CancellationToken ct = default);
         Task LinkOreAsync(int id, int? oreId, CancellationToken ct = default);
         Task<(IReadOnlyList<LoCao_ProcessParam> Items, int Total)> SearchPagedAsync(int page, int size, string? sortBy, string? sortDir, string? search, CancellationToken ct = default);
         Task<IReadOnlyList<BE_PHOITRON.Application.ResponsesModels.ProcessParamConfiguredResponse>> GetConfiguredByPaIdAsync(int paLuaChonCongThucId, CancellationToken ct = default);
