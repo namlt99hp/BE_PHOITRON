@@ -11,7 +11,7 @@ namespace BE_PHOITRON.Infrastructure.Persistence
         // Core entities
         public DbSet<Quang> Quang { get; set; } = default!;
         public DbSet<TP_HoaHoc> TP_HoaHoc { get; set; } = default!;
-        // public DbSet<LoaiQuang> LoaiQuang { get; set; } = default!;
+        public DbSet<LoaiQuang> LoaiQuang { get; set; } = default!;
         public DbSet<LoQuang> LoQuang { get; set; } = default!;
         
         // Analysis and pricing

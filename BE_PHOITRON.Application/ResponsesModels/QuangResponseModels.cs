@@ -6,7 +6,9 @@ namespace BE_PHOITRON.Application.ResponsesModels
         int ID,
         string Ma_Quang,
         string Ten_Quang,
-        int Loai_Quang,
+        int ID_LoaiQuang,
+        string? TenLoaiQuang,
+        int? ID_LoQuang,
         bool Dang_Hoat_Dong,
         bool Da_Xoa,
         string? Ghi_Chu,
@@ -22,10 +24,10 @@ namespace BE_PHOITRON.Application.ResponsesModels
         int? ID_Quang_Gang = null
     );
 
-// Minimal models for batch chemistry API
-public record QuangMinimal(int Id, string Ten_Quang);
-public record TPHHOfQuangMinimal(int Id, decimal PhanTram, int? ThuTuTPHH = null);
-public record OreChemistryBatchItem(QuangMinimal quang, IReadOnlyList<TPHHOfQuangMinimal> tP_HoaHocs);
+    // Minimal models for batch chemistry API
+    public record QuangMinimal(int Id, string Ten_Quang);
+    public record TPHHOfQuangMinimal(int Id, decimal PhanTram, int? ThuTuTPHH = null);
+    public record OreChemistryBatchItem(QuangMinimal quang, IReadOnlyList<TPHHOfQuangMinimal> tP_HoaHocs);
 
     public record QuangDetailResponse(
         QuangResponse Quang,
@@ -85,7 +87,7 @@ public record OreChemistryBatchItem(QuangMinimal quang, IReadOnlyList<TPHHOfQuan
 
     public record QuangKetQuaInfo(
         int ID_Quang,
-        int LoaiQuang,
+        int ID_LoaiQuang,
         string Ma_Quang,
         string Ten_Quang
     );
@@ -116,6 +118,7 @@ public record OreChemistryBatchItem(QuangMinimal quang, IReadOnlyList<TPHHOfQuan
         int Id,
         string Ma_Quang,
         string Ten_Quang,
+        int ID_LoaiQuang, // Loại quặng đầu ra (1=Tron, 6=Vê viên, ...) để FE móc vào select loại quặng
         IReadOnlyList<TPHHItem> TP_HoaHocs
     );
 
@@ -123,8 +126,9 @@ public record OreChemistryBatchItem(QuangMinimal quang, IReadOnlyList<TPHHOfQuan
         int ID_Quang,
         string Ten_Quang,
         decimal Ti_Le_Phan_Tram,
+        int? Thu_Tu,
         IReadOnlyList<TPHHValue> TP_HoaHocs,
-        int? Loai_Quang,
+        int? ID_LoaiQuang,
         decimal? Gia_USD_1Tan,
         decimal? Ty_Gia_USD_VND,
         decimal? Gia_VND_1Tan,
@@ -133,7 +137,9 @@ public record OreChemistryBatchItem(QuangMinimal quang, IReadOnlyList<TPHHOfQuan
         decimal? Ti_Le_KhaoHao,
         decimal? KL_VaoLo,
         decimal? Ti_Le_HoiQuang,
-        decimal? KL_Nhan
+        decimal? KL_Nhan,
+        decimal? SauNung, // Sau nung cho Vê viên
+        bool IsNghien = false // Quặng thành phần cần nghiền (Vê viên) → FE set slide toggle cột chi phí nghiền
     );
 
     public record TPHHItem(int Id, string Ma_TPHH, string? Ten_TPHH, decimal? PhanTram, int? ThuTuTPHH = null);
@@ -150,7 +156,8 @@ public record OreChemistryBatchItem(QuangMinimal quang, IReadOnlyList<TPHHOfQuan
         decimal DonGiaUSD,
         int? ID_Quang_DauRa = null, // Quặng đầu ra của công thức (dùng để map quặng thành phần với quặng loại 7)
         string? Ten_Quang = null, // Tên quặng (dùng để hiển thị)
-        int? Loai_Quang = null // Loại quặng (dùng để highlight quặng loại 7)
+        int? ID_LoaiQuang = null, // ID LoaiQuang (dùng để highlight quặng loại 7)
+        decimal? ChiPhiNghien = null // Chi phí nghiền cho Vê viên
     );
 
     // Batch get formulas by output ore ids
@@ -167,7 +174,7 @@ public record OreChemistryBatchItem(QuangMinimal quang, IReadOnlyList<TPHHOfQuan
         int Id,
         string Ma_Quang,
         string Ten_Quang,
-        int Loai_Quang,
+        int ID_LoaiQuang,
         decimal Gia_USD_1Tan,
         decimal Ty_Gia_USD_VND,
         decimal Gia_VND_1Tan,

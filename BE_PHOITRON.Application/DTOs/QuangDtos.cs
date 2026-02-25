@@ -5,7 +5,8 @@ namespace BE_PHOITRON.Application.DTOs
     public record QuangCreateDto(
         [Required] [StringLength(50)] string Ma_Quang,
         [Required] [StringLength(200)] string Ten_Quang,
-        [Required] int Loai_Quang,
+        [Required] int ID_LoaiQuang,
+        int? ID_LoQuang = null,
         bool Dang_Hoat_Dong = true,
         string? Ghi_Chu = null,
         int? Nguoi_Tao = null
@@ -15,7 +16,8 @@ namespace BE_PHOITRON.Application.DTOs
         [Required] int ID,
         [Required] [StringLength(50)] string Ma_Quang,
         [Required] [StringLength(200)] string Ten_Quang,
-        [Required] int Loai_Quang,
+        [Required] int ID_LoaiQuang,
+        int? ID_LoQuang = null,
         bool Dang_Hoat_Dong = true,
         string? Ghi_Chu = null,
         int? Nguoi_Tao = null
@@ -28,7 +30,8 @@ namespace BE_PHOITRON.Application.DTOs
 
     public record QuangThanhPhanHoaHocDto(
         [Required] int ID_TPHH,
-        [Required] [Range(0, 100)] decimal Gia_Tri_PhanTram,
+        // Cho phép âm / vượt 100, chỉ cần là số hợp lệ
+        [Required] decimal Gia_Tri_PhanTram,
         int? ThuTuTPHH = null,
         decimal? KhoiLuong = null,
         string? CalcFormula = null,
@@ -48,7 +51,8 @@ namespace BE_PHOITRON.Application.DTOs
         int? ID,
         [Required] [StringLength(50)] string Ma_Quang,
         [Required] [StringLength(200)] string Ten_Quang,
-        [Required] int Loai_Quang,
+        [Required] int ID_LoaiQuang,
+        int? ID_LoQuang = null,
         bool Dang_Hoat_Dong = true,
         string? Ghi_Chu = null,
         [Required] IReadOnlyList<QuangThanhPhanHoaHocDto> ThanhPhanHoaHoc = null!,
@@ -80,7 +84,7 @@ namespace BE_PHOITRON.Application.DTOs
         int? ID,
         [Required] [StringLength(50)] string Ma_Quang,
         [Required] [StringLength(200)] string Ten_Quang,
-        [Required] [Range(2, 4)] int Loai_Quang, // 2=Gang, 4=Xỉ
+        [Required] int ID_LoaiQuang, // FK to LoaiQuang (Gang or Xi)
         [Required] IReadOnlyList<QuangThanhPhanHoaHocDto> ThanhPhanHoaHoc,
         [Required] int ID_PhuongAn, // Required plan ID for mapping
         bool Dang_Hoat_Dong = true,

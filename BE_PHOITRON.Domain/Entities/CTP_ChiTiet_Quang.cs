@@ -8,7 +8,8 @@ namespace BE_PHOITRON.Domain.Entities
         public int ID { get; set; }
         public int ID_Cong_Thuc_Phoi { get; set; }
         public int ID_Quang_DauVao { get; set; }
-        [Column(TypeName = "decimal(18,4)")]
+        /// <summary>Tỷ lệ phần trăm (0-100) của quặng thành phần trong công thức phối.</summary>
+        [Column("Ti_Le_Phan_Tram", TypeName = "decimal(18,4)")]
         public decimal Ti_Le_Phan_Tram { get; set; }
         [Column("Khau_Hao", TypeName = "decimal(18,4)")]
         public decimal? Khau_Hao { get; set; }
@@ -29,12 +30,13 @@ namespace BE_PHOITRON.Domain.Entities
         [Column("KL_Nhan", TypeName = "decimal(18,4)")]
         public decimal? KL_Nhan { get; set; }
 
-        [Column("GiaDuKien", TypeName = "decimal(18, 2)")]
-        public decimal? GiaDuKien { get; set; }
+        [Column("SauNung", TypeName = "decimal(18,4)")]
+        public decimal? SauNung { get; set; }
 
-        [Column("TieuHao", TypeName = "decimal(18,4)")]
-        public decimal? TieuHao { get; set; }
-        
+        /// <summary>Quặng thành phần có cần nghiền trong công thức phối Vê viên.</summary>
+        [Column("IsNghien")]
+        public bool? IsNghien { get; set; }
+
         // No navigation properties. Relations are handled via ID fields only.
     }
 }

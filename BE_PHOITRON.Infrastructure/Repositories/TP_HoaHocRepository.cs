@@ -21,6 +21,12 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 .OrderBy(x => x.Thu_Tu)
                 .ToListAsync(ct);
 
+        public async Task<IReadOnlyList<TP_HoaHoc>> GetDefaultChemsAsync(CancellationToken ct = default)
+            => await _set.AsNoTracking()
+                .Where(x => !x.Da_Xoa && x.ThuTuMacDinh != null && x.ThuTuMacDinh > 0)
+                .OrderBy(x => x.ThuTuMacDinh)
+                .ToListAsync(ct);
+
         public override async Task<(int total, IReadOnlyList<TP_HoaHoc> data)> SearchPagedAsync(
             int page, int pageSize, string? search = null, string? sortBy = null, string? sortDir = null, CancellationToken ct = default)
         {

@@ -204,6 +204,9 @@ namespace BE_PHOITRON.Application.Services
         public Task<List<PlanSectionDto>> GetPlanSectionsByGangDichAsync(int gangDichId, bool includeThieuKet = true, bool includeLoCao = true, CancellationToken ct = default)
             => _phuongAnRepo.GetPlanSectionsByGangDichAsync(gangDichId, includeThieuKet, includeLoCao, ct);
 
+        public Task<List<RelatedOreForSummaryDto>> GetRelatedOresByGangDichAsync(int gangDichId, CancellationToken ct = default)
+            => _phuongAnRepo.GetRelatedOresByGangDichAsync(gangDichId, ct);
+
        
 
         private static Phuong_An_PhoiResponse MapToResponse(Phuong_An_Phoi entity) => new(

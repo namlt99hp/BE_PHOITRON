@@ -19,5 +19,6 @@ namespace BE_PHOITRON.Application.Services.Interfaces
         // Business Logic Operations
         Task<bool> ExistsByCodeAsync(string maTPHH, CancellationToken ct = default);
         Task<IReadOnlyList<TP_HoaHocResponse>> GetActiveAsync(CancellationToken ct = default);
+        Task<IReadOnlyList<TP_HoaHocResponse>> GetDefaultChemsAsync(CancellationToken ct = default); // Lấy các TPHH có ThuTuMacDinh được set
     }
 }

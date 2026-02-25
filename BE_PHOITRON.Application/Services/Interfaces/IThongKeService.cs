@@ -18,7 +18,7 @@ public interface IThongKeService
     
     // PA_ThongKe_Result operations
     Task<List<ThongKeResultDto>> GetResultsByPlanIdAsync(int planId, CancellationToken ct = default);
-    Task<List<ThongKeResultDto>> CalculateAndSaveAsync(int planId, CalculationContextDto context, CancellationToken ct = default);
+    // Task<List<ThongKeResultDto>> CalculateAndSaveAsync(int planId, CalculationContextDto context, CancellationToken ct = default);
     Task<bool> DeleteResultsByPlanIdAsync(int planId, CancellationToken ct = default);
     Task<int> UpsertResultsForPlanAsync(int planId, List<PlanResultsUpsertItemDto> items, CancellationToken ct = default);
 }

@@ -1,4 +1,4 @@
-﻿using BE_PHOITRON.Application.Abstractions;
+using BE_PHOITRON.Application.Abstractions;
 using BE_PHOITRON.Application.Abstractions.Base;
 using BE_PHOITRON.Application.Abstractions.Repositories;
 using BE_PHOITRON.Application.Services;
@@ -28,6 +28,8 @@ namespace BE_PHOITRON.Infrastructure.Configuration
 
             // Core Entity Repositories
             services.AddScoped<IQuangRepository, QuangRepository>();
+            services.AddScoped<ILoaiQuangRepository, LoaiQuangRepository>();
+            services.AddScoped<ILoQuangRepository, LoQuangRepository>();
             // Gang module removed
             services.AddScoped<ITP_HoaHocRepository, TP_HoaHocRepository>();
             
@@ -55,6 +57,8 @@ namespace BE_PHOITRON.Infrastructure.Configuration
 
             // Application Services
             services.AddScoped<IQuangService, QuangService>();
+            services.AddScoped<ILoaiQuangService, LoaiQuangService>();
+            services.AddScoped<ILoQuangService, LoQuangService>();
             // Gang module removed
             services.AddScoped<ITP_HoaHocService, TP_HoaHocService>();
             services.AddScoped<IQuang_TP_PhanTichService, Quang_TP_PhanTichService>();

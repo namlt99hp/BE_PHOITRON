@@ -44,6 +44,7 @@ namespace BE_PHOITRON.Application.Services
                 Ten_TPHH = dto.Ten_TPHH,
                 Don_Vi = dto.Don_Vi,
                 Thu_Tu = dto.Thu_Tu,
+                ThuTuMacDinh = dto.ThuTuMacDinh,
                 Ghi_Chu = dto.Ghi_Chu,
                 Da_Xoa = false,
                 Nguoi_Tao = dto.Nguoi_Tao
@@ -71,6 +72,7 @@ namespace BE_PHOITRON.Application.Services
             entity.Ten_TPHH = dto.Ten_TPHH;
             entity.Don_Vi = dto.Don_Vi;
             entity.Thu_Tu = dto.Thu_Tu;
+            entity.ThuTuMacDinh = dto.ThuTuMacDinh;
             entity.Ghi_Chu = dto.Ghi_Chu;
 
             _tpHHRepo.Update(entity);
@@ -92,6 +94,7 @@ namespace BE_PHOITRON.Application.Services
                     dto.TP_HoaHoc.Ten_TPHH,
                     dto.TP_HoaHoc.Don_Vi,
                     dto.TP_HoaHoc.Thu_Tu,
+                    dto.TP_HoaHoc.ThuTuMacDinh,
                     dto.TP_HoaHoc.Ghi_Chu
                 );
                 var success = await UpdateAsync(updateDto, ct);
@@ -124,12 +127,19 @@ namespace BE_PHOITRON.Application.Services
             return entities.Select(MapToResponse).ToList();
         }
 
+        public async Task<IReadOnlyList<TP_HoaHocResponse>> GetDefaultChemsAsync(CancellationToken ct = default)
+        {
+            var entities = await _tpHHRepo.GetDefaultChemsAsync(ct);
+            return entities.Select(MapToResponse).ToList();
+        }
+
         private static TP_HoaHocResponse MapToResponse(TP_HoaHoc entity) => new(
             entity.ID,
             entity.Ma_TPHH,
             entity.Ten_TPHH,
             entity.Don_Vi,
             entity.Thu_Tu,
+            entity.ThuTuMacDinh,
             entity.Ghi_Chu,
             entity.Ngay_Tao,
             entity.Da_Xoa

@@ -39,6 +39,7 @@ namespace BE_PHOITRON.Application.Services
               thuTu = item.ThuTu,
               isCalculated = item.IsCalculated,
               calcFormula = item.CalcFormula,
+              giaTriMacDinh = item.GiaTriMacDinh,
               linkedOre = item.ID_Quang_LienKet == null ? null : await _repo.GetLinkedOreBasicAsync(item.ID_Quang_LienKet.Value, ct)
           };
       }
@@ -59,6 +60,7 @@ namespace BE_PHOITRON.Application.Services
             exist.ThuTu = payload.ThuTu;
             exist.IsCalculated = payload.IsCalculated;
             exist.CalcFormula = payload.CalcFormula;
+            exist.GiaTriMacDinh = payload.GiaTriMacDinh;
 
             await _repo.UpdateAsync(exist, ct);
         }

@@ -11,7 +11,8 @@ namespace BE_PHOITRON.Application.ResponsesModels
         bool? IsCalculated,
         string? CalcFormula,
         decimal? GiaTri,
-        int? ThuTuParam
+        int? ThuTuParam,
+        decimal? GiaTriMacDinh
     );
 }
 

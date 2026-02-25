@@ -34,6 +34,8 @@ namespace BE_PHOITRON.Application.Abstractions.Repositories
 
         // Section data retrieval
         Task<List<PlanSectionDto>> GetPlanSectionsByGangDichAsync(int gangDichId, bool includeThieuKet = true, bool includeLoCao = true, CancellationToken ct = default);
+        /// <summary>Lấy tất cả quặng liên quan đến các phương án thuộc gang đích (đầu vào công thức ThieuKet + LoCao + thành phần quặng loại 7), trừ loại 2, 4, 7.</summary>
+        Task<List<RelatedOreForSummaryDto>> GetRelatedOresByGangDichAsync(int gangDichId, CancellationToken ct = default);
         
         // Clone gang with all plans
         Task<int> CloneGangWithAllPlansAsync(int sourceGangId, int newGangId, ClonePlanRequestDto baseOptions, CancellationToken ct = default);

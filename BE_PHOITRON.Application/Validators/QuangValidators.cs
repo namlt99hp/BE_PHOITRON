@@ -1,4 +1,4 @@
-﻿/*
+/*
 using BE_PHOITRON.Application.DTOs;
 using FluentValidation;
 
@@ -15,8 +15,8 @@ namespace BE_PHOITRON.Application.Validators
             RuleFor(x => x.Ten_Quang)
                 .MaximumLength(200).WithMessage("Tên quặng không được vượt quá 200 ký tự");
 
-            RuleFor(x => x.Loai_Quang)
-                .InclusiveBetween(0, 2).WithMessage("Loại quặng phải từ 0 đến 2");
+            RuleFor(x => x.ID_LoaiQuang)
+                .GreaterThan(0).WithMessage("ID_LoaiQuang phải lớn hơn 0");
 
             RuleFor(x => x.Ghi_Chu)
                 .MaximumLength(500).WithMessage("Ghi chú không được vượt quá 500 ký tự");
@@ -37,8 +37,8 @@ namespace BE_PHOITRON.Application.Validators
             RuleFor(x => x.Ten_Quang)
                 .MaximumLength(200).WithMessage("Tên quặng không được vượt quá 200 ký tự");
 
-            RuleFor(x => x.Loai_Quang)
-                .InclusiveBetween(0, 2).WithMessage("Loại quặng phải từ 0 đến 2");
+            RuleFor(x => x.ID_LoaiQuang)
+                .GreaterThan(0).WithMessage("ID_LoaiQuang phải lớn hơn 0");
 
             RuleFor(x => x.Ghi_Chu)
                 .MaximumLength(500).WithMessage("Ghi chú không được vượt quá 500 ký tự");

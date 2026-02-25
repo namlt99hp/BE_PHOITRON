@@ -24,9 +24,11 @@ namespace BE_PHOITRON.Application.ResponsesModels
 public record ThieuKetOreComponentDto(int OreId, string MaQuang, string TenQuang, decimal TiLePhanTram);
         public record ThieuKetSectionDto(
             List<ThieuKetOreComponentDto> Components,
+            List<ThieuKetOreComponentDto>? ChildComponents,
             decimal? TK_TIEU_HAO_QTK,
             decimal? TK_SIO2_QTK,
             decimal? TK_TFE,
+            decimal? TK_CAO,
             decimal? TK_R2,
             decimal? TK_PHAM_VI_VAO_LO,
             decimal? TK_COST
@@ -61,7 +63,11 @@ public record ThieuKetOreComponentDto(int OreId, string MaQuang, string TenQuang
         decimal? LC_TONG_ZN_VAO_LO,
         decimal? LC_PHAM_VI_VAO_LO,
         decimal? LC_TI_TRONG_GANG,
-        decimal? LC_MN_TRONG_GANG
+        decimal? LC_CU_TRONG_GANG,
+        decimal? LC_MN_TRONG_GANG,
+        decimal? TongChiPhi = null,  // Tổng chi phí = giá quặng đầu ra Lò cao (Quang_Gia_LichSu), cùng cách tính khi phối trong mix
+        decimal? AL2O3_XI = null, 
+        decimal? TiLeMgO_AL2O3 = null
     );
     
     public record PlanLoCaoSectionDto(
@@ -88,7 +94,8 @@ public record ThieuKetOreComponentDto(int OreId, string MaQuang, string TenQuang
     public record BangChiPhiLoCaoDto(
         string TenQuang,
         decimal? Tieuhao,
-        string LineType
+        string LineType,
+        int? LoaiQuang
     );
 
     // Combined DTO for both sections
@@ -99,5 +106,17 @@ public record ThieuKetOreComponentDto(int OreId, string MaQuang, string TenQuang
         ThieuKetSectionDto? ThieuKet,
         LoCaoSectionDto? LoCao,
         List<BangChiPhiLoCaoDto>? BangChiPhiLoCao
+    );
+
+    /// <summary>Quặng liên quan đến các phương án của gang đích (dùng cho bảng Giá đầu vào summary), trừ loại 2 (Gang), 4 (Xỉ), 7 (QuangPA).</summary>
+    public record RelatedOreForSummaryDto(
+        int Id,
+        string MaQuang,
+        string TenQuang,
+        int IdLoaiQuang,
+        decimal? GiaUsd,
+        decimal? GiaVnd,
+        decimal? TyGia,
+        DateTimeOffset? NgayTyGia
     );
 }

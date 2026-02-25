@@ -1,4 +1,4 @@
-﻿using BE_PHOITRON.Application.Abstractions;
+using BE_PHOITRON.Application.Abstractions;
 using BE_PHOITRON.Application.Abstractions.Repositories;
 using BE_PHOITRON.Application.DTOs;
 using BE_PHOITRON.Application.ResponsesModels;
@@ -55,7 +55,8 @@ namespace BE_PHOITRON.Application.Services
             {
                 Ma_Quang = dto.Ma_Quang,
                 Ten_Quang = dto.Ten_Quang,
-                Loai_Quang = dto.Loai_Quang,
+                ID_LoaiQuang = dto.ID_LoaiQuang,
+                ID_LoQuang = dto.ID_LoQuang,
                 Dang_Hoat_Dong = dto.Dang_Hoat_Dong,
                 Da_Xoa = false,
                 Ghi_Chu = dto.Ghi_Chu,
@@ -83,7 +84,8 @@ namespace BE_PHOITRON.Application.Services
 
             entity.Ma_Quang = dto.Ma_Quang;
             entity.Ten_Quang = dto.Ten_Quang;
-            entity.Loai_Quang = dto.Loai_Quang;
+            entity.ID_LoaiQuang = dto.ID_LoaiQuang;
+            entity.ID_LoQuang = dto.ID_LoQuang;
             entity.Dang_Hoat_Dong = dto.Dang_Hoat_Dong;
             entity.Ghi_Chu = dto.Ghi_Chu;
             entity.Ngay_Sua = DateTimeOffset.Now;
@@ -106,7 +108,8 @@ namespace BE_PHOITRON.Application.Services
                     dto.ID.Value,
                     dto.Quang.Ma_Quang,
                     dto.Quang.Ten_Quang,
-                    dto.Quang.Loai_Quang,
+                    dto.Quang.ID_LoaiQuang,
+                    dto.Quang.ID_LoQuang,
                     dto.Quang.Dang_Hoat_Dong,
                     dto.Quang.Ghi_Chu
                 );
@@ -140,13 +143,13 @@ namespace BE_PHOITRON.Application.Services
         public async Task<IReadOnlyList<QuangResponse>> GetByLoaiAsync(int loaiQuang, CancellationToken ct = default)
         {
             var entities = await _quangRepo.GetByLoaiAsync(loaiQuang, ct);
-            return entities.Select(MapToResponse).ToList();
+            return entities.Select(e => MapToResponse(e)).ToList();
         }
 
         public async Task<IReadOnlyList<QuangResponse>> GetActiveAsync(CancellationToken ct = default)
         {
             var entities = await _quangRepo.GetActiveAsync(ct);
-            return entities.Select(MapToResponse).ToList();
+            return entities.Select(e => MapToResponse(e)).ToList();
         }
 
         public async Task<bool> SetActiveAsync(int id, bool isActive, CancellationToken ct = default)
@@ -217,11 +220,13 @@ namespace BE_PHOITRON.Application.Services
             return _quangRepo.GetGangDichDetailWithConfigAsync(gangId, ct);
         }
 
-        private static QuangResponse MapToResponse(Quang entity) => new(
+        private static QuangResponse MapToResponse(Quang entity, string? tenLoaiQuang = null) => new(
             entity.ID,
             entity.Ma_Quang,
             entity.Ten_Quang ?? string.Empty,
-            entity.Loai_Quang,
+            entity.ID_LoaiQuang,
+            tenLoaiQuang,
+            entity.ID_LoQuang,
             entity.Dang_Hoat_Dong,
             entity.Da_Xoa,
             entity.Ghi_Chu,

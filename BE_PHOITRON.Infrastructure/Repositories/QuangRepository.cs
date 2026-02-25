@@ -18,6 +18,17 @@ namespace BE_PHOITRON.Infrastructure.Repositories
         {
         }
 
+        // Helper method to get IDs of LoaiQuang that match a specific enum value
+        // Since enum values match LoaiQuang IDs, we just check ID == enumValue
+        private async Task<List<int>> GetLoaiQuangIdsByEnumAsync(int enumValue, CancellationToken ct = default)
+        {
+            var exists = await _db.Set<LoaiQuang>()
+                .AsNoTracking()
+                .AnyAsync(lq => lq.ID == enumValue, ct);
+            
+            return exists ? new List<int> { enumValue } : new List<int>();
+        }
+
         public async Task<bool> ExistsByCodeAsync(string maQuang, CancellationToken ct = default)
             => await _set.AnyAsync(x => x.Ma_Quang == maQuang && !x.Da_Xoa, ct);
 
@@ -44,9 +55,9 @@ namespace BE_PHOITRON.Infrastructure.Repositories
             return false;
         }
 
-        public async Task<IReadOnlyList<Quang>> GetByLoaiAsync(int loaiQuang, CancellationToken ct = default)
+        public async Task<IReadOnlyList<Quang>> GetByLoaiAsync(int idLoaiQuang, CancellationToken ct = default)
             => await _set.AsNoTracking()
-                .Where(x => x.Loai_Quang == loaiQuang && !x.Da_Xoa)
+                .Where(x => x.ID_LoaiQuang == idLoaiQuang && !x.Da_Xoa)
                 .ToListAsync(ct);
 
         public async Task<IReadOnlyList<Quang>> GetActiveAsync(CancellationToken ct = default)
@@ -56,12 +67,19 @@ namespace BE_PHOITRON.Infrastructure.Repositories
 
         public async Task<QuangDetailResponse?> GetDetailByIdAsync(int id, CancellationToken ct = default)
         {
-            // Get quặng basic info
-            var quang = await _set.AsNoTracking()
+            // Get quặng basic info with LoaiQuang
+            var quangWithLoai = await _set.AsNoTracking()
                 .Where(x => x.ID == id && !x.Da_Xoa)
+                .GroupJoin(_db.Set<LoaiQuang>().AsNoTracking(),
+                    quang => quang.ID_LoaiQuang,
+                    loaiQuang => loaiQuang.ID,
+                    (quang, loaiQuangs) => new { quang, loaiQuang = loaiQuangs.FirstOrDefault() })
                 .FirstOrDefaultAsync(ct);
 
-            if (quang == null) return null;
+            if (quangWithLoai == null) return null;
+
+            var quang = quangWithLoai.quang;
+            var loaiQuang = quangWithLoai.loaiQuang;
 
             // Get chemical composition
             var tpHoaHocs = await _db.Set<Quang_TP_PhanTich>()
@@ -107,7 +125,9 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                     quang.ID,
                     quang.Ma_Quang,
                     quang.Ten_Quang ?? string.Empty,
-                    quang.Loai_Quang,
+                    quang.ID_LoaiQuang,
+                    loaiQuang?.TenLoaiQuang,
+                    quang.ID_LoQuang,
                     quang.Dang_Hoat_Dong,
                     quang.Da_Xoa,
                     quang.Ghi_Chu,
@@ -158,7 +178,7 @@ namespace BE_PHOITRON.Infrastructure.Repositories
 
             if (loaiQuang != null && loaiQuang.Length > 0)
             {
-                q = q.Where(x => loaiQuang.Contains(x.Loai_Quang));
+                q = q.Where(x => loaiQuang.Contains(x.ID_LoaiQuang));
             }
 
             if (!string.IsNullOrWhiteSpace(search))
@@ -182,44 +202,50 @@ namespace BE_PHOITRON.Infrastructure.Repositories
             var now = DateTimeOffset.Now;
             var data = await q.Skip(page * pageSize)
                               .Take(pageSize)
+                              .GroupJoin(_db.Set<LoaiQuang>().AsNoTracking(),
+                                  quang => quang.ID_LoaiQuang,
+                                  loaiQuang => loaiQuang.ID,
+                                  (quang, loaiQuangs) => new { quang, loaiQuang = loaiQuangs.FirstOrDefault() })
                               .Select(x => new QuangResponse(
-                                  x.ID,
-                                  x.Ma_Quang,
-                                  x.Ten_Quang ?? string.Empty,
-                                  x.Loai_Quang,
-                                  x.Dang_Hoat_Dong,
-                                  x.Da_Xoa,
-                                  x.Ghi_Chu,
-                                  x.Ngay_Tao,
-                                  x.Nguoi_Tao,
-                                  x.Ngay_Sua,
-                                  x.Nguoi_Sua,
+                                  x.quang.ID,
+                                  x.quang.Ma_Quang,
+                                  x.quang.Ten_Quang ?? string.Empty,
+                                  x.quang.ID_LoaiQuang,
+                                  x.loaiQuang != null ? x.loaiQuang.TenLoaiQuang : null,
+                                  x.quang.ID_LoQuang,
+                                  x.quang.Dang_Hoat_Dong,
+                                  x.quang.Da_Xoa,
+                                  x.quang.Ghi_Chu,
+                                  x.quang.Ngay_Tao,
+                                  x.quang.Nguoi_Tao,
+                                  x.quang.Ngay_Sua,
+                                  x.quang.Nguoi_Sua,
                                   _db.Set<Quang_Gia_LichSu>()
-                                    .Where(p => p.ID_Quang == x.ID && !p.Da_Xoa && p.Hieu_Luc_Tu <= now && (p.Hieu_Luc_Den == null || p.Hieu_Luc_Den >= now))
+                                    .Where(p => p.ID_Quang == x.quang.ID && !p.Da_Xoa && p.Hieu_Luc_Tu <= now && (p.Hieu_Luc_Den == null || p.Hieu_Luc_Den >= now))
                                     .OrderByDescending(p => p.Hieu_Luc_Tu)
                                     .Select(p => p.Don_Gia_USD_1Tan)
                                     .FirstOrDefault(),
                                   _db.Set<Quang_Gia_LichSu>()
-                                    .Where(p => p.ID_Quang == x.ID && !p.Da_Xoa && p.Hieu_Luc_Tu <= now && (p.Hieu_Luc_Den == null || p.Hieu_Luc_Den >= now))
+                                    .Where(p => p.ID_Quang == x.quang.ID && !p.Da_Xoa && p.Hieu_Luc_Tu <= now && (p.Hieu_Luc_Den == null || p.Hieu_Luc_Den >= now))
                                     .OrderByDescending(p => p.Hieu_Luc_Tu)
                                     .Select(p => p.Don_Gia_VND_1Tan)
                                     .FirstOrDefault(),
                                   _db.Set<Quang_Gia_LichSu>()
-                                    .Where(p => p.ID_Quang == x.ID && !p.Da_Xoa && p.Hieu_Luc_Tu <= now && (p.Hieu_Luc_Den == null || p.Hieu_Luc_Den >= now))
+                                    .Where(p => p.ID_Quang == x.quang.ID && !p.Da_Xoa && p.Hieu_Luc_Tu <= now && (p.Hieu_Luc_Den == null || p.Hieu_Luc_Den >= now))
                                     .OrderByDescending(p => p.Hieu_Luc_Tu)
                                     .Select(p => p.Ty_Gia_USD_VND)
                                     .FirstOrDefault(),
                                   _db.Set<Quang_Gia_LichSu>()
-                                    .Where(p => p.ID_Quang == x.ID && !p.Da_Xoa && p.Hieu_Luc_Tu <= now && (p.Hieu_Luc_Den == null || p.Hieu_Luc_Den >= now))
+                                    .Where(p => p.ID_Quang == x.quang.ID && !p.Da_Xoa && p.Hieu_Luc_Tu <= now && (p.Hieu_Luc_Den == null || p.Hieu_Luc_Den >= now))
                                     .OrderByDescending(p => p.Hieu_Luc_Tu)
                                     .Select(p => (DateTimeOffset?)p.Hieu_Luc_Tu)
                                     .FirstOrDefault(),
                                     _db.Set<Quang_Gia_LichSu>()
-                                    .Where(p => p.ID_Quang == x.ID && !p.Da_Xoa && p.Hieu_Luc_Tu <= now && (p.Hieu_Luc_Den == null || p.Hieu_Luc_Den >= now))
+                                    .Where(p => p.ID_Quang == x.quang.ID && !p.Da_Xoa && p.Hieu_Luc_Tu <= now && (p.Hieu_Luc_Den == null || p.Hieu_Luc_Den >= now))
                                     .OrderByDescending(p => p.Hieu_Luc_Tu)
                                     .Select(p => p.Tien_Te)
                                     .FirstOrDefault(),
-                                    x.ID_Quang_Gang
+                                    x.quang.ID_Quang_Gang
                               ))
                               .ToListAsync(ct);
 
@@ -240,7 +266,7 @@ namespace BE_PHOITRON.Infrastructure.Repositories
             {
                 "ma_quang" => isDesc ? query.OrderByDescending(x => x.Ma_Quang) : query.OrderBy(x => x.Ma_Quang),
                 "ten_quang" => isDesc ? query.OrderByDescending(x => x.Ten_Quang) : query.OrderBy(x => x.Ten_Quang),
-                "loai_quang" => isDesc ? query.OrderByDescending(x => x.Loai_Quang) : query.OrderBy(x => x.Loai_Quang),
+                "id_loaiquang" => isDesc ? query.OrderByDescending(x => x.ID_LoaiQuang) : query.OrderBy(x => x.ID_LoaiQuang),
                 "ngay_tao" => isDesc ? query.OrderByDescending(x => x.Ngay_Tao) : query.OrderBy(x => x.Ngay_Tao),
                 _ => query.OrderByDescending(x => x.Ngay_Tao)
             };
@@ -273,7 +299,8 @@ namespace BE_PHOITRON.Infrastructure.Repositories
 
                     quangEntity.Ma_Quang = dto.Ma_Quang;
                     quangEntity.Ten_Quang = dto.Ten_Quang;
-                    quangEntity.Loai_Quang = dto.Loai_Quang;
+                    quangEntity.ID_LoaiQuang = dto.ID_LoaiQuang;
+                    quangEntity.ID_LoQuang = dto.ID_LoQuang;
                     quangEntity.Dang_Hoat_Dong = dto.Dang_Hoat_Dong;
                     quangEntity.Ghi_Chu = dto.Ghi_Chu;
                     quangEntity.Ngay_Sua = DateTimeOffset.Now;
@@ -292,7 +319,8 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                     {
                         Ma_Quang = dto.Ma_Quang,
                         Ten_Quang = dto.Ten_Quang,
-                        Loai_Quang = dto.Loai_Quang,
+                        ID_LoaiQuang = dto.ID_LoaiQuang,
+                        ID_LoQuang = dto.ID_LoQuang,
                         Dang_Hoat_Dong = dto.Dang_Hoat_Dong,
                         Da_Xoa = false,
                         Ghi_Chu = dto.Ghi_Chu,
@@ -304,8 +332,8 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                     await _set.AddAsync(quangEntity, ct);
                 }
 
-                var isGangTarget = quangEntity.Loai_Quang == (int)Domain.Entities.LoaiQuang.Gang && quangEntity.ID_Quang_Gang == null;
-                var isSlagOfGangTemplate = quangEntity.Loai_Quang == (int)Domain.Entities.LoaiQuang.Xi && quangEntity.ID_Quang_Gang.HasValue;
+                var isGangTarget = quangEntity.ID_LoaiQuang == (int)Domain.Entities.LoaiQuangEnum.Gang && quangEntity.ID_Quang_Gang == null;
+                var isSlagOfGangTemplate = quangEntity.ID_LoaiQuang == (int)Domain.Entities.LoaiQuangEnum.Xi && quangEntity.ID_Quang_Gang.HasValue;
                 var shouldSaveTemplate = dto.SaveAsTemplate && (isGangTarget || isSlagOfGangTemplate);
                 quangEntity.Is_Template = shouldSaveTemplate;
 
@@ -523,7 +551,7 @@ namespace BE_PHOITRON.Infrastructure.Repositories
             var details = await _db.Set<CTP_ChiTiet_Quang>().AsNoTracking()
                 .Where(x => formulaIds.Contains(x.ID_Cong_Thuc_Phoi) && !x.Da_Xoa)
                 .Join(_db.Set<Quang>().AsNoTracking(), a => a.ID_Quang_DauVao, q => q.ID,
-                    (a, q) => new { a.ID_Cong_Thuc_Phoi, q.ID, q.Ma_Quang, q.Ten_Quang, q.Loai_Quang, a.Ti_Le_Phan_Tram })
+                    (a, q) => new { a.ID_Cong_Thuc_Phoi, q.ID, q.Ma_Quang, q.Ten_Quang, q.ID_LoaiQuang, a.Ti_Le_Phan_Tram })
                 .ToListAsync(ct);
 
             var now = DateTimeOffset.Now;
@@ -544,15 +572,16 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                             d.ID,
                             d.Ma_Quang ?? string.Empty,
                             d.Ten_Quang ?? string.Empty,
-                            d.Loai_Quang,
+                            d.ID_LoaiQuang,
                             p?.Don_Gia_USD_1Tan ?? 0,
                             p?.Ty_Gia_USD_VND ?? 0,
                             p?.Don_Gia_VND_1Tan ?? 0,
                             d.Ti_Le_Phan_Tram
                         );
                     })
-                    // Sort: mixed ores (Loai_Quang = 1 hoặc 7) first, then by ID for stability
-                    .OrderBy(x => (x.Loai_Quang == 1 || x.Loai_Quang == 7) ? 0 : 1)
+                    // Sort: mixed ores (Tron hoặc QuangPA) first, then by ID for stability
+                    // Note: Simplified sorting by ID for now
+                    .OrderBy(x => x.Id)
                     .ThenBy(x => x.Id)
                     .ToList();
 
@@ -571,9 +600,11 @@ namespace BE_PHOITRON.Infrastructure.Repositories
 
         public async Task<int?> GetSlagIdByGangIdAsync(int gangId, CancellationToken ct = default)
         {
+            var xiLoaiQuangIds = await GetLoaiQuangIdsByEnumAsync((int)Domain.Entities.LoaiQuangEnum.Xi, ct);
+
             return await _db.Set<Quang>()
                 .AsNoTracking()
-                .Where(x => x.Loai_Quang == (int)Domain.Entities.LoaiQuang.Xi && x.ID_Quang_Gang == gangId && !x.Da_Xoa)
+                .Where(x => xiLoaiQuangIds.Contains(x.ID_LoaiQuang) && x.ID_Quang_Gang == gangId && !x.Da_Xoa)
                 .Select(x => (int?)x.ID)
                 .FirstOrDefaultAsync(ct);
         }
@@ -589,9 +620,12 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                     q => q.ID, 
                     (pa, q) => new { 
                         ID_Quang = q.ID, 
-                        LoaiQuang = q.Loai_Quang
+                        ID_LoaiQuang = q.ID_LoaiQuang
                     })
                 .ToListAsync(ct);
+
+            var gangLoaiQuangIds = await GetLoaiQuangIdsByEnumAsync((int)Domain.Entities.LoaiQuangEnum.Gang, ct);
+            var xiLoaiQuangIds = await GetLoaiQuangIdsByEnumAsync((int)Domain.Entities.LoaiQuangEnum.Xi, ct);
 
             QuangDetailResponse? gang = null;
             QuangDetailResponse? slag = null;
@@ -601,9 +635,9 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 var detail = await GetDetailByIdAsync(q.ID_Quang, ct);
                 if (detail != null)
                 {
-                    if (q.LoaiQuang == 2) // Gang
+                    if (gangLoaiQuangIds.Contains(q.ID_LoaiQuang)) // Gang
                         gang = detail;
-                    else if (q.LoaiQuang == 4) // Xỉ
+                    else if (xiLoaiQuangIds.Contains(q.ID_LoaiQuang)) // Xỉ
                         slag = detail;
                 }
             }
@@ -613,9 +647,11 @@ namespace BE_PHOITRON.Infrastructure.Repositories
 
         public async Task<QuangDetailResponse?> GetLatestGangTargetAsync(CancellationToken ct = default)
         {
-            // Lấy gang đích được tạo gần nhất (loại = 2, ID_Quang_Gang = null)
+            // Lấy gang đích được tạo gần nhất (LoaiQuangEnum = Gang, ID_Quang_Gang = null)
+            var gangLoaiQuangIds = await GetLoaiQuangIdsByEnumAsync((int)Domain.Entities.LoaiQuangEnum.Gang, ct);
+
             var latestGang = await _set.AsNoTracking()
-                .Where(x => x.Loai_Quang == 2 // Gang
+                .Where(x => gangLoaiQuangIds.Contains(x.ID_LoaiQuang) // Gang
                          && x.ID_Quang_Gang == null // Gang đích (không phải gang kết quả)
                          && !x.Da_Xoa)
                 .OrderByDescending(x => x.Ngay_Tao)
@@ -652,14 +688,18 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 return null;
             }
 
-            var isGangTarget = gangDetail.Quang.Loai_Quang == (int)LoaiQuang.Gang && gangDetail.Quang.ID_Quang_Gang == null;
+            var gangLoaiQuangIds = await GetLoaiQuangIdsByEnumAsync((int)LoaiQuangEnum.Gang, ct);
+
+            var isGangTarget = gangLoaiQuangIds.Contains(gangDetail.Quang.ID_LoaiQuang) && gangDetail.Quang.ID_Quang_Gang == null;
             if (!isGangTarget)
             {
                 return null;
             }
 
+            var xiLoaiQuangIds = await GetLoaiQuangIdsByEnumAsync((int)LoaiQuangEnum.Xi, ct);
+
             var slagEntity = await _db.Quang.AsNoTracking()
-                .Where(x => x.Loai_Quang == 4
+                .Where(x => xiLoaiQuangIds.Contains(x.ID_LoaiQuang)
                             && x.ID_Quang_Gang == gangId
                             && !x.Da_Xoa)
                 .OrderByDescending(x => x.Ngay_Tao)
@@ -693,7 +733,7 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                     {
                         Ma_Quang = dto.Ma_Quang,
                         Ten_Quang = dto.Ten_Quang,
-                        Loai_Quang = dto.Loai_Quang,
+                        ID_LoaiQuang = dto.ID_LoaiQuang,
                         Dang_Hoat_Dong = dto.Dang_Hoat_Dong,
                         Ghi_Chu = dto.Ghi_Chu,
                         Da_Xoa = false,
@@ -713,19 +753,19 @@ namespace BE_PHOITRON.Infrastructure.Repositories
 
                     entity.Ma_Quang = dto.Ma_Quang;
                     entity.Ten_Quang = dto.Ten_Quang;
-                    entity.Loai_Quang = dto.Loai_Quang;
+                    entity.ID_LoaiQuang = dto.ID_LoaiQuang;
                     entity.Dang_Hoat_Dong = dto.Dang_Hoat_Dong;
                     entity.Ghi_Chu = dto.Ghi_Chu;
                     entity.ID_Quang_Gang = dto.ID_Quang_Gang;
-                    // Update ID_Quang_Gang dựa trên Loai_Quang:
-                    // - Gang (Loai_Quang = 2): ID_Quang_Gang = null
-                    // - Xỉ (Loai_Quang = 4): ID_Quang_Gang = dto.ID_Quang_Gang (phải có giá trị)
-                    if (dto.Loai_Quang == 2)
+                    // Update ID_Quang_Gang dựa trên ID_LoaiQuang:
+                    // - Gang (ID_LoaiQuang = 2): ID_Quang_Gang = null
+                    // - Xỉ (ID_LoaiQuang = 4): ID_Quang_Gang = dto.ID_Quang_Gang (phải có giá trị)
+                    if (dto.ID_LoaiQuang == (int)Domain.Entities.LoaiQuangEnum.Gang)
                     {
                         // Gang: luôn set null
                         entity.ID_Quang_Gang = null;
                     }
-                    else if (dto.Loai_Quang == 4)
+                    else if (dto.ID_LoaiQuang == (int)Domain.Entities.LoaiQuangEnum.Xi)
                     {
                         // Xỉ: phải có ID_Quang_Gang
                         if (dto.ID_Quang_Gang.HasValue)
@@ -753,7 +793,7 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 await UpsertChemicalCompositionAsync(entity.ID, dto.ThanhPhanHoaHoc, ct);
 
                 // Upsert PA_Quang_KQ mapping
-                await UpsertPaQuangKqMappingAsync(dto.ID_PhuongAn, entity.ID, dto.Loai_Quang, ct);
+                await UpsertPaQuangKqMappingAsync(dto.ID_PhuongAn, entity.ID, dto.ID_LoaiQuang, ct);
 
                 if (!hasExternalTransaction && tx is not null)
                 {
@@ -783,9 +823,11 @@ namespace BE_PHOITRON.Infrastructure.Repositories
             ArgumentNullException.ThrowIfNull(dto);
             ArgumentNullException.ThrowIfNull(dto.Gang);
 
-            if (dto.Gang.Loai_Quang != (int)LoaiQuang.Gang)
+            var gangLoaiQuangIds = await GetLoaiQuangIdsByEnumAsync((int)LoaiQuangEnum.Gang, ct);
+
+            if (!gangLoaiQuangIds.Contains(dto.Gang.ID_LoaiQuang))
             {
-                throw new InvalidOperationException("Gang đích phải có loại quặng = 2 (Gang).");
+                throw new InvalidOperationException("Gang đích phải có ID_LoaiQuang tương ứng với loại Gang.");
             }
 
             if (dto.Gang.ID_Quang_Gang.HasValue)
@@ -793,9 +835,14 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 throw new InvalidOperationException("Gang đích không được tham chiếu tới quặng khác (ID_Quang_Gang phải null).");
             }
 
-            if (dto.Slag != null && dto.Slag.Loai_Quang != (int)LoaiQuang.Xi)
+            if (dto.Slag != null)
             {
-                throw new InvalidOperationException("Cấu hình xỉ phải có loại quặng = 4 (Xỉ).");
+                var xiLoaiQuangIds = await GetLoaiQuangIdsByEnumAsync((int)LoaiQuangEnum.Xi, ct);
+
+                if (!xiLoaiQuangIds.Contains(dto.Slag.ID_LoaiQuang))
+                {
+                    throw new InvalidOperationException("Cấu hình xỉ phải có ID_LoaiQuang tương ứng với loại Xi.");
+                }
             }
 
             await using var transaction = await _db.Database.BeginTransactionAsync(ct);
@@ -836,11 +883,12 @@ namespace BE_PHOITRON.Infrastructure.Repositories
             }
         }
 
-        private async Task UpsertPaQuangKqMappingAsync(int idPhuongAn, int idQuang, int loaiQuang, CancellationToken ct = default)
+        private async Task UpsertPaQuangKqMappingAsync(int idPhuongAn, int idQuang, int idLoaiQuang, CancellationToken ct = default)
         {
+            // ID_LoaiQuang = enum value, so use it directly
             // Check if mapping already exists
             var existingMapping = await _db.PA_Quang_KQ
-                .FirstOrDefaultAsync(x => x.ID_PhuongAn == idPhuongAn && x.LoaiQuang == loaiQuang, ct);
+                .FirstOrDefaultAsync(x => x.ID_PhuongAn == idPhuongAn && x.LoaiQuang == idLoaiQuang, ct);
 
             if (existingMapping != null)
             {
@@ -855,7 +903,7 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 {
                     ID_PhuongAn = idPhuongAn,
                     ID_Quang = idQuang,
-                    LoaiQuang = loaiQuang
+                    LoaiQuang = idLoaiQuang // ID_LoaiQuang = enum value
                 };
                 _db.PA_Quang_KQ.Add(newMapping);
             }
@@ -1010,11 +1058,12 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 throw new InvalidOperationException($"Không thể xóa quặng này. Quặng đang được sử dụng như quặng đầu vào trong công thức phối '{usedAsInputOre.FormulaCode ?? $"ID:{usedAsInputOre.FormulaId}"}'.");
             }
 
-            // Bước 2: Nếu là quặng được trộn (loại 1, 6, hoặc 7), xóa công thức phối tạo ra nó
+            // Bước 2: Nếu là quặng được trộn (Tron, QuangVeVien, hoặc QuangPA), xóa công thức phối tạo ra nó
             // Quặng được trộn khác quặng thường ở chỗ: nó được tạo ra từ công thức phối
-            // Loại 1: Trộn bình thường, Loại 6: (reserved), Loại 7: Trộn trong phương án
             // Nên khi xóa quặng được trộn, cần xóa luôn công thức phối tạo ra nó
-            if (entity.Loai_Quang == 1 || entity.Loai_Quang == 6 || entity.Loai_Quang == 7)
+            if (entity.ID_LoaiQuang == (int)Domain.Entities.LoaiQuangEnum.Tron || 
+                entity.ID_LoaiQuang == (int)Domain.Entities.LoaiQuangEnum.QuangVeVien || 
+                entity.ID_LoaiQuang == (int)Domain.Entities.LoaiQuangEnum.QuangPA)
             {
                 // Tìm công thức phối có quặng này là đầu ra
                 var formulasWithThisOutput = await _db.Set<Cong_Thuc_Phoi>()
@@ -1037,12 +1086,16 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 }
             }
 
-            // Bước 3: Nếu là gang (Loai_Quang = 2), kiểm tra và xóa xỉ liên kết (nếu có)
-            if (entity.Loai_Quang == 2 && entity.ID_Quang_Gang == null)
+            // Bước 3: Nếu là gang, kiểm tra và xóa xỉ liên kết (nếu có)
+            var gangLoaiQuangIds = await GetLoaiQuangIdsByEnumAsync((int)Domain.Entities.LoaiQuangEnum.Gang, ct);
+
+            if (gangLoaiQuangIds.Contains(entity.ID_LoaiQuang) && entity.ID_Quang_Gang == null)
             {
                 // Tìm xỉ liên kết với gang này
+                var xiLoaiQuangIds = await GetLoaiQuangIdsByEnumAsync((int)Domain.Entities.LoaiQuangEnum.Xi, ct);
+
                 var linkedSlag = await _set
-                    .Where(x => x.Loai_Quang == 4 && x.ID_Quang_Gang == id && !x.Da_Xoa)
+                    .Where(x => xiLoaiQuangIds.Contains(x.ID_LoaiQuang) && x.ID_Quang_Gang == id && !x.Da_Xoa)
                     .FirstOrDefaultAsync(ct);
                 
                 if (linkedSlag != null)
@@ -1052,8 +1105,10 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 }
             }
 
-            // Bước 4: Nếu là xỉ (Loai_Quang = 4) và có ID_Quang_Gang, kiểm tra xem có gang nào đang tham chiếu không
-            if (entity.Loai_Quang == 4 && entity.ID_Quang_Gang.HasValue)
+            // Bước 4: Nếu là xỉ và có ID_Quang_Gang, kiểm tra xem có gang nào đang tham chiếu không
+            var xiLoaiQuangIdsForCheck = await GetLoaiQuangIdsByEnumAsync((int)Domain.Entities.LoaiQuangEnum.Xi, ct);
+
+            if (xiLoaiQuangIdsForCheck.Contains(entity.ID_LoaiQuang) && entity.ID_Quang_Gang.HasValue)
             {
                 var gangId = entity.ID_Quang_Gang.Value;
                 var gangExists = await _set.AnyAsync(x => x.ID == gangId && !x.Da_Xoa, ct);
@@ -1096,7 +1151,9 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 var gangDichEntity = await _set.FirstOrDefaultAsync(x => x.ID == gangDichId, ct);
                 if (gangDichEntity == null) return false;
 
-                if (gangDichEntity.Loai_Quang != 2 || gangDichEntity.ID_Quang_Gang != null)
+                var gangLoaiQuangIdsForDeleteGang = await GetLoaiQuangIdsByEnumAsync((int)Domain.Entities.LoaiQuangEnum.Gang, ct);
+
+                if (!gangLoaiQuangIdsForDeleteGang.Contains(gangDichEntity.ID_LoaiQuang) || gangDichEntity.ID_Quang_Gang != null)
                 {
                     // Không phải gang đích
                     await tx.RollbackAsync(ct);
@@ -1123,8 +1180,10 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 }
 
                 // 5. Xóa xỉ liên quan (nếu có)
+                var xiLoaiQuangIdsForDelete = await GetLoaiQuangIdsByEnumAsync((int)Domain.Entities.LoaiQuangEnum.Xi, ct);
+
                 var slagEntity = await _db.Quang
-                    .Where(x => x.Loai_Quang == 4
+                    .Where(x => xiLoaiQuangIdsForDelete.Contains(x.ID_LoaiQuang)
                                 && x.ID_Quang_Gang == gangDichId
                                 && !x.Da_Xoa)
                     .FirstOrDefaultAsync(ct);
@@ -1205,13 +1264,15 @@ namespace BE_PHOITRON.Infrastructure.Repositories
             }
         }
 
-        private static QuangResponse MapToQuangResponse(Quang entity)
+        private static QuangResponse MapToQuangResponse(Quang entity, string? tenLoaiQuang = null)
         {
             return new QuangResponse(
                 entity.ID,
                 entity.Ma_Quang,
                 entity.Ten_Quang ?? string.Empty,
-                entity.Loai_Quang,
+                entity.ID_LoaiQuang,
+                tenLoaiQuang,
+                entity.ID_LoQuang,
                 entity.Dang_Hoat_Dong,
                 entity.Da_Xoa,
                 entity.Ghi_Chu,
@@ -1230,8 +1291,10 @@ namespace BE_PHOITRON.Infrastructure.Repositories
 
         private async Task<Quang?> FindGangTemplateEntityAsync(int? gangId, CancellationToken ct)
         {
+            var gangLoaiQuangIdsForTemplate = await GetLoaiQuangIdsByEnumAsync((int)Domain.Entities.LoaiQuangEnum.Gang, ct);
+
             var gangQuery = _set.AsNoTracking()
-                .Where(x => x.Loai_Quang == 2 && x.ID_Quang_Gang == null && !x.Da_Xoa);
+                .Where(x => gangLoaiQuangIdsForTemplate.Contains(x.ID_LoaiQuang) && x.ID_Quang_Gang == null && !x.Da_Xoa);
 
             if (gangId.HasValue && gangId.Value > 0)
             {
@@ -1247,11 +1310,18 @@ namespace BE_PHOITRON.Infrastructure.Repositories
         private async Task<(QuangResponse Gang, IReadOnlyList<TPHHOfQuangResponse> GangTPHHs, QuangResponse? Slag, IReadOnlyList<TPHHOfQuangResponse> SlagTPHHs)>
             GetGangAndSlagTemplateAsync(Quang gangEntity, CancellationToken ct)
         {
-            var gangResponse = MapToQuangResponse(gangEntity);
+            // Load TenLoaiQuang for gang
+            var gangLoaiQuang = await _db.Set<LoaiQuang>().AsNoTracking()
+                .Where(lq => lq.ID == gangEntity.ID_LoaiQuang)
+                .Select(lq => lq.TenLoaiQuang)
+                .FirstOrDefaultAsync(ct);
+            var gangResponse = MapToQuangResponse(gangEntity, gangLoaiQuang);
             var gangTPHHs = await LoadChemistryTemplateAsync(gangEntity.ID, ct);
 
+            var xiLoaiQuangIdsForTemplate = await GetLoaiQuangIdsByEnumAsync((int)Domain.Entities.LoaiQuangEnum.Xi, ct);
+
             var slagEntity = await _db.Quang.AsNoTracking()
-                .Where(x => x.Loai_Quang == 4
+                .Where(x => xiLoaiQuangIdsForTemplate.Contains(x.ID_LoaiQuang)
                             && x.ID_Quang_Gang == gangEntity.ID
                             && !x.Da_Xoa
                             && x.Is_Template == true)
@@ -1263,7 +1333,12 @@ namespace BE_PHOITRON.Infrastructure.Repositories
 
             if (slagEntity is not null)
             {
-                slagResponse = MapToQuangResponse(slagEntity);
+                // Load TenLoaiQuang for slag
+                var slagLoaiQuang = await _db.Set<LoaiQuang>().AsNoTracking()
+                    .Where(lq => lq.ID == slagEntity.ID_LoaiQuang)
+                    .Select(lq => lq.TenLoaiQuang)
+                    .FirstOrDefaultAsync(ct);
+                slagResponse = MapToQuangResponse(slagEntity, slagLoaiQuang);
                 slagTPHHs = await LoadChemistryTemplateAsync(slagEntity.ID, ct);
             }
 

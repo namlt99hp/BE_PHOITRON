@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace BE_PHOITRON.Domain.Entities
 {
@@ -10,6 +10,7 @@ namespace BE_PHOITRON.Domain.Entities
         public string? Ten_TPHH { get; set; }
         public string Don_Vi { get; set; } = "%";
         public int? Thu_Tu { get; set; }
+        public int? ThuTuMacDinh { get; set; } // Thứ tự mặc định khi mở phương án phối trộn
         public string? Ghi_Chu { get; set; }
         public bool Da_Xoa { get; set; } = false;
         public DateTimeOffset Ngay_Tao { get; set; } = DateTimeOffset.Now;

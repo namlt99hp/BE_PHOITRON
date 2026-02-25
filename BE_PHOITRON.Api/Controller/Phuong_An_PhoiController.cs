@@ -298,6 +298,14 @@ namespace BE_PHOITRON.Api.Controller
             return Ok(ApiResponse<List<PlanSectionDto>>.Ok(data));
         }
 
+        /// <summary>Lấy danh sách quặng liên quan đến các phương án của gang đích (để hiển thị Giá đầu vào), trừ quặng loại 2 (Gang), 4 (Xỉ), 7 (QuangPA).</summary>
+        [HttpGet("[action]/gang-dich/{gangDichId:int}")]
+        public async Task<ActionResult<ApiResponse<List<RelatedOreForSummaryDto>>>> GetRelatedOresByGangDich(int gangDichId, CancellationToken ct = default)
+        {
+            var data = await service.GetRelatedOresByGangDichAsync(gangDichId, ct);
+            return Ok(ApiResponse<List<RelatedOreForSummaryDto>>.Ok(data));
+        }
+
         [HttpDelete("[action]/{planId:int}")]
         public async Task<ActionResult<ApiResponse<object>>> DeletePlanWithRelatedData(int planId, CancellationToken ct)
         {

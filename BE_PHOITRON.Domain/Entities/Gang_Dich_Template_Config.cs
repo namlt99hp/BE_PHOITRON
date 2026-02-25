@@ -12,7 +12,7 @@ namespace BE_PHOITRON.Domain.Entities
         public int ID { get; set; }
         
         /// <summary>
-        /// ID gang đích (FK -> Quang.ID where Loai_Quang = 2 and ID_Quang_Gang = null)
+        /// ID gang đích (FK -> Quang.ID where ID_LoaiQuang = 2 and ID_Quang_Gang = null)
         /// </summary>
         public int ID_Gang_Dich { get; set; }
         

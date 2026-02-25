@@ -16,7 +16,7 @@ namespace BE_PHOITRON.Domain.Entities
         public string? Nguoi_Tao { get; set; }
         public bool? IsCalculated { get; set; } = false;
         public string? CalcFormula { get; set; }          // Biểu thức/công thức tham chiếu
-
+        public decimal? GiaTriMacDinh { get; set; }      
     }
 }
 

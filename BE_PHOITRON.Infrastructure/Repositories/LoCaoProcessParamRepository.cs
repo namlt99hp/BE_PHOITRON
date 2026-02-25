@@ -155,7 +155,8 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                             p.IsCalculated,
                             p.CalcFormula,
                             v.GiaTri,
-                            v.ThuTuParam
+                            v.ThuTuParam,
+                            p.GiaTriMacDinh
                         );
 
             var list = await query.ToListAsync(ct);
@@ -185,13 +186,19 @@ namespace BE_PHOITRON.Infrastructure.Repositories
             
             _db.PA_ProcessParamValue.RemoveRange(existingConfigs);
 
+            // Get default values from LoCao_ProcessParam
+            var processParams = await _db.LoCao_ProcessParam
+                .AsNoTracking()
+                .Where(x => processParamIds.Contains(x.ID))
+                .ToDictionaryAsync(x => x.ID, x => x.GiaTriMacDinh, ct);
+
             // Add new configurations
             var newConfigs = processParamIds.Select((paramId, index) => new PA_ProcessParamValue
             {
                 ID_Phuong_An = paLuaChonCongThucId,
                 ID_ProcessParam = paramId,
                 ThuTuParam = thuTuParams.Count > index ? thuTuParams[index] : index + 1, // Use provided order or fallback to sequential
-                GiaTri = null, // Initial value
+                GiaTri = processParams.TryGetValue(paramId, out var defaultValue) ? defaultValue : null, // Use default value if available
                 Ngay_Tao = DateTime.Now,
                 Nguoi_Tao = "System" // TODO: Get from current user context
             }).ToList();

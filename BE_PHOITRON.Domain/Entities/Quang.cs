@@ -1,15 +1,19 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace BE_PHOITRON.Domain.Entities
 {
-    public enum LoaiQuang : byte
+    public enum LoaiQuangEnum : byte
     {
-        Mua = 0,
+        
         Tron = 1,
         Gang = 2,
-        Khac = 3,
-        Xi = 4
+        NhienLieu = 3,
+        Xi = 4,
+        QuangCo = 5,
+        QuangVeVien = 6,
+        QuangPA = 7,
+        Mua = 8,
     }
 
     public class Quang
@@ -18,7 +22,17 @@ namespace BE_PHOITRON.Domain.Entities
         public int ID { get; set; }
         public string Ma_Quang { get; set; } = string.Empty;
         public string? Ten_Quang { get; set; }
-        public int Loai_Quang { get; set; } // 0=Mua,1=Tron,2=Gang,3=Khac,4=Xi,7=TronTrongPhuongAn
+        /// <summary>
+        /// Khóa ngoại tới bảng LoaiQuang (danh mục loại quặng - ID trùng với enum LoaiQuangEnum value)
+        /// </summary>
+        [Required]
+        public int ID_LoaiQuang { get; set; }
+
+        /// <summary>
+        /// Khóa ngoại tới bảng LoQuang (danh mục lô quặng)
+        /// </summary>
+        public int? ID_LoQuang { get; set; }
+
         public bool Dang_Hoat_Dong { get; set; } = true;
         public bool Da_Xoa { get; set; } = false;
         public string? Ghi_Chu { get; set; }

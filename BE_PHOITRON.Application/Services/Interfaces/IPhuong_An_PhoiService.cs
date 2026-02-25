@@ -42,6 +42,7 @@ namespace BE_PHOITRON.Application.Services.Interfaces
         
         // Section data retrieval
         Task<List<PlanSectionDto>> GetPlanSectionsByGangDichAsync(int gangDichId, bool includeThieuKet = true, bool includeLoCao = true, CancellationToken ct = default);
+        Task<List<RelatedOreForSummaryDto>> GetRelatedOresByGangDichAsync(int gangDichId, CancellationToken ct = default);
         
     }
 }

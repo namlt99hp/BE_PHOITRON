@@ -33,6 +33,10 @@ namespace BE_PHOITRON.Domain.Entities
         // SQL column name: DonGiaUSD (decimal(18,6), not nullable)
         [Column("DonGiaUSD", TypeName = "decimal(18,6)")]
         public decimal DonGiaUSD { get; set; }
+
+        // SQL column name: ChiPhiNghien (decimal(18,6), nullable)
+        [Column("ChiPhiNghien", TypeName = "decimal(18,6)")]
+        public decimal? ChiPhiNghien { get; set; }
     }
 }
 

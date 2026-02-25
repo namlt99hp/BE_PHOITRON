@@ -2,7 +2,6 @@ using BE_PHOITRON.Application.DTOs;
 using BE_PHOITRON.Application.ResponsesModels;
 using BE_PHOITRON.Application.Services.Interfaces;
 using BE_PHOITRON.Infrastructure.Shared;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,10 +9,10 @@ namespace BE_PHOITRON.Api.Controller
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class TP_HoaHocController(ITP_HoaHocService service) : ControllerBase
+    public class LoQuangController(ILoQuangService service) : ControllerBase
     {
         [HttpGet("[action]")]
-        public async Task<ActionResult<ApiResponse<PagedResult<TP_HoaHocResponse>>>> Search(
+        public async Task<ActionResult<ApiResponse<PagedResult<LoQuangResponse>>>> Search(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20,
             [FromQuery] string? search = null,
@@ -22,43 +21,17 @@ namespace BE_PHOITRON.Api.Controller
             CancellationToken ct = default)
         {
             var (total, data) = await service.SearchPagedAsync(page, pageSize, search, sortBy, sortDir, ct);
-            return Ok(ApiResponse<PagedResult<TP_HoaHocResponse>>.Ok(new PagedResult<TP_HoaHocResponse>(total, page, pageSize, data)));
+            return Ok(ApiResponse<PagedResult<LoQuangResponse>>.Ok(new PagedResult<LoQuangResponse>(total, page, pageSize, data)));
         }
 
-        // [HttpPost("[action]")]
-        // public async Task<IActionResult> Create([FromBody] TP_HoaHocCreateDto dto, CancellationToken ct)
-        // {
-        //     try
-        //     {
-        //         var id = await service.CreateAsync(dto, ct);
-        //         return CreatedAtAction(nameof(GetById), new { id }, new { id });
-        //     }
-        //     catch (InvalidOperationException ex)
-        //     {
-        //         return BadRequest(new { message = ex.Message });
-        //     }
-        // }
-
         [HttpGet("[action]/{id:int}")]
-        public async Task<ActionResult<ApiResponse<TP_HoaHocResponse>>> GetById(int id, CancellationToken ct)
-            => (await service.GetByIdAsync(id, ct)) is { } dto ? Ok(ApiResponse<TP_HoaHocResponse>.Ok(dto)) : NotFound(ApiResponse<TP_HoaHocResponse>.NotFound());
-
-        // [HttpPut("[action]")]
-        // public async Task<IActionResult> Update([FromBody] TP_HoaHocUpdateDto dto, CancellationToken ct)
-        // {
-        //     try
-        //     {
-        //         var success = await service.UpdateAsync(dto, ct);
-        //         return success ? Ok(new { message = "Cập nhật thành công" }) : NotFound();
-        //     }
-        //     catch (InvalidOperationException ex)
-        //     {
-        //         return BadRequest(new { message = ex.Message });
-        //     }
-        // }
+        public async Task<ActionResult<ApiResponse<LoQuangResponse>>> GetById(int id, CancellationToken ct)
+            => (await service.GetByIdAsync(id, ct)) is { } dto
+                ? Ok(ApiResponse<LoQuangResponse>.Ok(dto))
+                : NotFound(ApiResponse<LoQuangResponse>.NotFound());
 
         [HttpPost("[action]")]
-        public async Task<ActionResult<ApiResponse<object>>> Upsert([FromBody] TP_HoaHocUpsertDto dto, CancellationToken ct)
+        public async Task<ActionResult<ApiResponse<object>>> Upsert([FromBody] LoQuangUpsertDto dto, CancellationToken ct)
         {
             try
             {
@@ -93,10 +66,6 @@ namespace BE_PHOITRON.Api.Controller
                     ? Ok(ApiResponse<object>.Ok(null, "Xóa thành công"))
                     : NotFound(ApiResponse<object>.NotFound());
             }
-            catch (InvalidOperationException ex)
-            {
-                return Conflict(ApiResponse<object>.Conflict(ex.Message));
-            }
             catch (DbUpdateException ex)
             {
                 var (statusCode, message) = DatabaseExceptionHelper.HandleException(ex);
@@ -110,24 +79,11 @@ namespace BE_PHOITRON.Api.Controller
         }
 
         [HttpGet("[action]/active")]
-        public async Task<IActionResult> GetActive(CancellationToken ct)
+        public async Task<ActionResult<ApiResponse<IReadOnlyList<LoQuangResponse>>>> GetActive(CancellationToken ct)
         {
             var data = await service.GetActiveAsync(ct);
-            return Ok(data);
+            return Ok(ApiResponse<IReadOnlyList<LoQuangResponse>>.Ok(data));
         }
-
-        [HttpGet("[action]")]
-        public async Task<IActionResult> GetDefaultChems(CancellationToken ct)
-        {
-            var data = await service.GetDefaultChemsAsync(ct);
-            return Ok(ApiResponse<IReadOnlyList<TP_HoaHocResponse>>.Ok(data));
-        }
-
-        // [HttpGet("[action]/exists/{maTPHH}")]
-        // public async Task<IActionResult> ExistsByCode(string maTPHH, CancellationToken ct)
-        // {
-        //     var exists = await service.ExistsByCodeAsync(maTPHH, ct);
-        //     return Ok(new { exists });
-        // }
     }
 }
+

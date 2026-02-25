@@ -96,20 +96,20 @@ namespace BE_PHOITRON.Infrastructure.Repositories
 
         public async Task<Dictionary<int, decimal>> CalculateTPHHFormulasAsync(int quangId, CancellationToken ct = default)
         {
-            // First check if the quang is Gang (Loai_Quang = 2) or Xỉ (Loai_Quang = 4)
+            // First check if the quang is Gang (ID_LoaiQuang = 2) or Xỉ (ID_LoaiQuang = 4)
             var quang = await _db.Set<Quang>().AsNoTracking()
                 .Where(x => x.ID == quangId)
-                .Select(x => new { x.Loai_Quang })
+                .Select(x => new { x.ID_LoaiQuang })
                 .FirstOrDefaultAsync(ct);
             
-            if (quang == null || (quang.Loai_Quang != 2 && quang.Loai_Quang != 4))
+            if (quang == null || (quang.ID_LoaiQuang != 2 && quang.ID_LoaiQuang != 4))
             {
                 // Return empty dictionary if not Gang or Xỉ
                 return new Dictionary<int, decimal>();
             }
             
             // Get all TPHH data for this quang with formulas
-            // Only apply formulas for Gang (Loai_Quang = 2) and Xỉ (Loai_Quang = 4)
+            // Only apply formulas for Gang (ID_LoaiQuang = 2) and Xỉ (ID_LoaiQuang = 4)
             var tphhData = await _set.AsNoTracking()
                 .Where(x => x.ID_Quang == quangId && 
                            x.IsCalculated == true && 

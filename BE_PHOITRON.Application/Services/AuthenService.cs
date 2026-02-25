@@ -20,7 +20,7 @@ namespace BE_PHOITRON.Application.Services
 
         public async Task<LoginResponse> LoginAsync(LoginDto loginDto, CancellationToken ct = default)
         {
-            return await _authenRepo.LoginAsync(loginDto, ct);
+            return await _authenRepo.LoginAsync(loginDto, ct); 
         }
     }
 }

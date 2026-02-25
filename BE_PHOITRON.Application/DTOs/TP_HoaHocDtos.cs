@@ -7,6 +7,7 @@ namespace BE_PHOITRON.Application.DTOs
         string? Ten_TPHH,
         string Don_Vi = "%",
         int? Thu_Tu = null,
+        int? ThuTuMacDinh = null,
         string? Ghi_Chu = null,
         int? Nguoi_Tao = null
     );
@@ -17,6 +18,7 @@ namespace BE_PHOITRON.Application.DTOs
         string? Ten_TPHH,
         string Don_Vi = "%",
         int? Thu_Tu = null,
+        int? ThuTuMacDinh = null,
         string? Ghi_Chu = null,
         int? Nguoi_Tao = null
     );

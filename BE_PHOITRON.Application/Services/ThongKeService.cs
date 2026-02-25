@@ -70,9 +70,36 @@ public class ThongKeService : IThongKeService
         return await _repository.DeleteResultsByPlanIdAsync(planId, ct);
     }
 
-    public async Task<List<ThongKeResultDto>> CalculateAndSaveAsync(int planId, CalculationContextDto context, CancellationToken ct = default)
-    {
-        // For now, just return empty results since calculation logic is moved to frontend
-        return new List<ThongKeResultDto>();
-    }
+    // public async Task<List<ThongKeResultDto>> CalculateAndSaveAsync(int planId, CalculationContextDto context, CancellationToken ct = default)
+    // {
+    //     var functions = await _repository.GetAllFunctionsAsync(ct);
+    //     var now = DateTime.Now;
+    //     var results = new List<PA_ThongKe_ResultDto>();
+    //     int thuTu = 0;
+    //     foreach (var func in functions)
+    //     {
+    //         var giaTri = DeriveGiaTriFromContext(func.Code, context);
+    //         results.Add(new PA_ThongKe_ResultDto(
+    //             planId,
+    //             func.ID,
+    //             giaTri,
+    //             now,
+    //             "System",
+    //             thuTu++
+    //         ));
+    //     }
+    //     await _repository.SaveResultsAsync(planId, results, ct);
+    //     return await _repository.GetResultsByPlanIdAsync(planId, ct);
+    // }
+
+    // private static decimal DeriveGiaTriFromContext(string code, CalculationContextDto context)
+    // {
+    //     return code switch
+    //     {
+    //         "GANG_OUTPUT" => context.GangData?.Sum(x => x.Mass) ?? 0,
+    //         "SLAG_OUTPUT" => context.XaData?.Sum(x => x.Mass) ?? 0,
+    //         "ORE_CONSUMPTION" => context.MixData?.Sum(x => x.KlVaoLoResult) ?? 0,
+    //         _ => 0
+    //     };
+    // }
 }

@@ -17,6 +17,16 @@ namespace BE_PHOITRON.Infrastructure.Repositories
     {
         public Phuong_An_PhoiRepository(AppDbContext db) : base(db) { }
 
+        // Helper method to get IDs of LoaiQuang that match a specific enum value
+        // Since enum values match LoaiQuang IDs, we just check ID == enumValue
+        private async Task<List<int>> GetLoaiQuangIdsByEnumAsync(int enumValue, CancellationToken ct = default)
+        {
+            var exists = await _db.Set<LoaiQuang>()
+                .AsNoTracking()
+                .AnyAsync(lq => lq.ID == enumValue, ct);
+            
+            return exists ? new List<int> { enumValue } : new List<int>();
+        }
 
         // ========== ThieuKet Section ==========
 
@@ -142,7 +152,7 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                     {
                         quang.Ma_Quang = dto.QuangThanhPham.Ma_Quang;
                         quang.Ten_Quang = dto.QuangThanhPham.Ten_Quang;
-                        quang.Loai_Quang = dto.QuangThanhPham.Loai_Quang;
+                        quang.ID_LoaiQuang = dto.QuangThanhPham.ID_LoaiQuang;
 
                         if (dto.CongThucPhoi.Ngay_Tao.HasValue)
                             quang.Ngay_Tao = dto.CongThucPhoi.Ngay_Tao.Value;
@@ -197,6 +207,9 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                             ctq.KL_VaoLo = input.KL_VaoLo;
                             ctq.Ti_Le_HoiQuang = input.Ti_Le_HoiQuang;
                             ctq.KL_Nhan = input.KL_Nhan;
+                            ctq.SauNung = input.SauNung;
+                            ctq.IsNghien = input.IsNghien;
+                            ctq.Thu_Tu = input.Thu_Tu;
                             ctq.Da_Xoa = false;
                             _db.Set<CTP_ChiTiet_Quang>().Update(ctq);
                             upserted.Add(ctq);
@@ -217,6 +230,9 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                             KL_VaoLo = input.KL_VaoLo,
                             Ti_Le_HoiQuang = input.Ti_Le_HoiQuang,
                             KL_Nhan = input.KL_Nhan,
+                            SauNung = input.SauNung,
+                            IsNghien = input.IsNghien,
+                            Thu_Tu = input.Thu_Tu,
                             Da_Xoa = false
 
                             };
@@ -378,7 +394,7 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                     {
                         Ma_Quang = dto.QuangThanhPham.Ma_Quang,
                         Ten_Quang = dto.QuangThanhPham.Ten_Quang,
-                        Loai_Quang = dto.QuangThanhPham.Loai_Quang,
+                        ID_LoaiQuang = dto.QuangThanhPham.ID_LoaiQuang,
                         Dang_Hoat_Dong = true,
                         Da_Xoa = false,
                         Ghi_Chu = null,
@@ -439,6 +455,9 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                             KL_VaoLo = null,
                             Ti_Le_HoiQuang = null,
                             KL_Nhan = null,
+                            SauNung = input.SauNung,
+                            IsNghien = input.IsNghien,
+                            Thu_Tu = input.Thu_Tu,
                             Da_Xoa = false
 
                             });
@@ -523,7 +542,7 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 await _db.SaveChangesAsync(ct);
 
 
-                // Save output ore price to Quang_Gia_LichSu if provided
+                // Save output ore price to Quang_Gia_LichSu if provided (gồm cả quặng Vê viên: FE gửi getVeVienTotalDonGia())
                 if (dto.QuangThanhPham?.Gia != null)
                 {
                     var gia = dto.QuangThanhPham.Gia;
@@ -554,8 +573,10 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                     await AutoCreateBangChiPhiAsync(congThuc.ID, dto, ct);
                 }
 
-                // Tính và lưu giá cuối cùng vào Quang_Gia_LichSu
-                await CalculateAndSaveFinalPriceAsync(congThuc.ID, quang.ID, dto.CongThucPhoi.Ngay_Tao ?? DateTimeOffset.Now, ct);
+                // Tính và lưu giá cuối cùng vào Quang_Gia_LichSu chỉ khi FE không gửi Gia
+                // (khi FE gửi Gia — ví dụ quặng Vê viên với getVeVienTotalDonGia() — đã lưu ở trên, không ghi đè)
+                if (dto.QuangThanhPham?.Gia == null)
+                    await CalculateAndSaveFinalPriceAsync(congThuc.ID, quang.ID, dto.CongThucPhoi.Ngay_Tao ?? DateTimeOffset.Now, ct);
                 
                 return isUpdate ? congThuc.ID_Quang_DauRa : quang.ID;
             }
@@ -661,10 +682,11 @@ namespace BE_PHOITRON.Infrastructure.Repositories
 
             if (quangDauRa == null) return null;
 
-            // Get ChiTietQuang
+            // Get ChiTietQuang - sort theo Thu_Tu
             var chiTietQuang = await (from ctq in _db.Set<CTP_ChiTiet_Quang>().AsNoTracking()
                                     join q in _db.Set<Quang>().AsNoTracking() on ctq.ID_Quang_DauVao equals q.ID
                                     where ctq.ID_Cong_Thuc_Phoi == congThucPhoiId && !ctq.Da_Xoa && !q.Da_Xoa
+                                    orderby ctq.Thu_Tu ?? int.MaxValue, ctq.ID // Sort theo Thu_Tu, null đứng cuối
                                     select new CTP_ChiTiet_QuangResponse(
                                         ctq.ID,
                                         ctq.ID_Cong_Thuc_Phoi,
@@ -714,6 +736,117 @@ namespace BE_PHOITRON.Infrastructure.Repositories
             );
         }
 
+        /// <summary>
+        /// Tính thành phần hóa học đầu ra của công thức phối (tổng có trọng số từ các quặng thành phần).
+        /// Với quặng loại 1, 6, 7 (Tron, QuangVeVien, QuangPA): lấy thành phần mới nhất từ công thức phối tạo ra nó (đệ quy), không dùng CTP_ChiTiet_Quang_TPHH.
+        /// </summary>
+        private async Task<List<TPHHValue>> GetComputedOutputChemistryAsync(int congThucPhoiId, HashSet<int> visited, CancellationToken ct)
+        {
+            if (visited.Contains(congThucPhoiId))
+                return new List<TPHHValue>();
+
+            var cong = await _db.Set<Cong_Thuc_Phoi>().AsNoTracking()
+                .FirstOrDefaultAsync(x => x.ID == congThucPhoiId && !x.Da_Xoa, ct);
+            if (cong is null) return new List<TPHHValue>();
+
+            visited.Add(congThucPhoiId);
+            try
+            {
+                var ctqs = await _db.Set<CTP_ChiTiet_Quang>().AsNoTracking()
+                    .Where(x => x.ID_Cong_Thuc_Phoi == cong.ID && !x.Da_Xoa)
+                    .Join(_db.Set<Quang>().AsNoTracking(), a => a.ID_Quang_DauVao, q => q.ID, (a, q) => new { a, q })
+                    .OrderBy(x => x.a.Thu_Tu == null).ThenBy(x => x.a.Thu_Tu).ThenBy(x => x.a.ID_Quang_DauVao)
+                    .ToListAsync(ct);
+
+                if (ctqs.Count == 0) return new List<TPHHValue>();
+
+                var ctqIds = ctqs.Select(x => x.a.ID).ToList();
+                var inputOreIds = ctqs.Select(x => x.q.ID).Distinct().ToList();
+
+                var editedChemsByCtq = await _db.Set<CTP_ChiTiet_Quang_TPHH>().AsNoTracking()
+                    .Where(x => ctqIds.Contains(x.ID_CTP_ChiTiet_Quang) && !x.Da_Xoa)
+                    .Select(x => new { x.ID_CTP_ChiTiet_Quang, x.ID_TPHH, x.Gia_Tri_PhanTram })
+                    .ToListAsync(ct);
+
+                var originalChemsByOre = await _db.Set<Quang_TP_PhanTich>().AsNoTracking()
+                    .Where(x => inputOreIds.Contains(x.ID_Quang) && !x.Da_Xoa)
+                    .OrderBy(x => x.ThuTuTPHH).ThenBy(x => x.ID_TPHH)
+                    .Select(x => new { x.ID_Quang, x.ID_TPHH, x.Gia_Tri_PhanTram, x.ThuTuTPHH })
+                    .ToListAsync(ct);
+
+                const int loaiTron = (int)Domain.Entities.LoaiQuangEnum.Tron;
+                const int loaiQuangVeVien = (int)Domain.Entities.LoaiQuangEnum.QuangVeVien;
+                const int loaiQuangPA = (int)Domain.Entities.LoaiQuangEnum.QuangPA;
+
+                var producingFormulaByOre = await _db.Set<Cong_Thuc_Phoi>().AsNoTracking()
+                    .Where(f => inputOreIds.Contains(f.ID_Quang_DauRa) && !f.Da_Xoa)
+                    .ToDictionaryAsync(f => f.ID_Quang_DauRa, f => f.ID, ct);
+
+                var weightedSum = new Dictionary<int, (decimal Sum, int? ThuTuTPHH)>();
+
+                foreach (var ctq in ctqs)
+                {
+                    decimal ratio = ctq.a.Ti_Le_Phan_Tram / 100m;
+                    List<TPHHValue> componentChems;
+
+                    if (ctq.q.ID_LoaiQuang == loaiTron || ctq.q.ID_LoaiQuang == loaiQuangVeVien || ctq.q.ID_LoaiQuang == loaiQuangPA)
+                    {
+                        if (producingFormulaByOre.TryGetValue(ctq.q.ID, out int producingFormulaId))
+                            componentChems = await GetComputedOutputChemistryAsync(producingFormulaId, visited, ct);
+                        else
+                            componentChems = new List<TPHHValue>();
+
+                        if (componentChems.Count == 0)
+                        {
+                            var fallback = originalChemsByOre
+                                .Where(x => x.ID_Quang == ctq.q.ID)
+                                .Select(x => new TPHHValue(x.ID_TPHH, x.Gia_Tri_PhanTram, x.ThuTuTPHH))
+                                .ToList();
+                            componentChems = fallback;
+                        }
+                    }
+                    else
+                    {
+                        var edited = editedChemsByCtq
+                            .Where(x => x.ID_CTP_ChiTiet_Quang == ctq.a.ID)
+                            .Select(x => new TPHHValue(x.ID_TPHH, x.Gia_Tri_PhanTram, null))
+                            .ToList();
+                        if (edited.Any())
+                            componentChems = edited;
+                        else
+                            componentChems = originalChemsByOre
+                                .Where(x => x.ID_Quang == ctq.q.ID)
+                                .Select(x => new TPHHValue(x.ID_TPHH, x.Gia_Tri_PhanTram, x.ThuTuTPHH))
+                                .ToList();
+                    }
+
+                    foreach (var v in componentChems)
+                    {
+                        decimal val = v.PhanTram ?? 0;
+                        if (!weightedSum.TryGetValue(v.Id, out var existing))
+                            weightedSum[v.Id] = (ratio * val, v.ThuTuTPHH);
+                        else
+                            weightedSum[v.Id] = (existing.Sum + ratio * val, existing.ThuTuTPHH ?? v.ThuTuTPHH);
+                    }
+                }
+
+                var tphhIds = weightedSum.Keys.ToList();
+                var thuTuByTphh = await _db.Set<TP_HoaHoc>().AsNoTracking()
+                    .Where(t => tphhIds.Contains(t.ID))
+                    .ToDictionaryAsync(t => t.ID, t => t.Thu_Tu ?? t.ThuTuMacDinh ?? int.MaxValue, ct);
+
+                return weightedSum
+                    .OrderBy(x => thuTuByTphh.GetValueOrDefault(x.Key, int.MaxValue))
+                    .ThenBy(x => x.Key)
+                    .Select(x => new TPHHValue(x.Key, x.Value.Sum, null))
+                    .ToList();
+            }
+            finally
+            {
+                visited.Remove(congThucPhoiId);
+            }
+        }
+
         public async Task<CongThucPhoiDetailMinimal?> GetDetailMinimalAsync(int congThucPhoiId, CancellationToken ct = default)
         {
             var cong = await _db.Set<Cong_Thuc_Phoi>().AsNoTracking().FirstOrDefaultAsync(x => x.ID == congThucPhoiId && !x.Da_Xoa, ct);
@@ -733,12 +866,14 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 .ToListAsync(ct);
 
 
-            // Input ores & their chemistry - sorted by dependency (deepest first)
+            // Input ores & their chemistry
             var ctqs = await _db.Set<CTP_ChiTiet_Quang>().AsNoTracking()
                 .Where(x => x.ID_Cong_Thuc_Phoi == cong.ID && !x.Da_Xoa)
                 .Join(_db.Set<Quang>().AsNoTracking(), a => a.ID_Quang_DauVao, q => q.ID, (a, q) => new { a, q })
-
-                .OrderBy(x => x.a.ID_Quang_DauVao) // Simple ordering by ore ID
+                // Ưu tiên sắp xếp theo Thu_Tu (thứ tự phối), null đứng cuối, sau đó theo ID quặng để ổn định
+                .OrderBy(x => x.a.Thu_Tu == null)
+                .ThenBy(x => x.a.Thu_Tu)
+                .ThenBy(x => x.a.ID_Quang_DauVao)
                 .ToListAsync(ct);
 
             var inputOreIds = ctqs.Select(x => x.q.ID).Distinct().ToList();
@@ -764,32 +899,49 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 })
                 .ToListAsync(ct);
 
+            const int loaiTron = (int)Domain.Entities.LoaiQuangEnum.Tron;
+            const int loaiQuangVeVien = (int)Domain.Entities.LoaiQuangEnum.QuangVeVien;
+            const int loaiQuangPA = (int)Domain.Entities.LoaiQuangEnum.QuangPA;
+
+            var producingFormulaByOreId = await _db.Set<Cong_Thuc_Phoi>().AsNoTracking()
+                .Where(f => inputOreIds.Contains(f.ID_Quang_DauRa) && !f.Da_Xoa)
+                .ToDictionaryAsync(f => f.ID_Quang_DauRa, f => f.ID, ct);
+
             // Group chemistry data by ore ID
+            // Với quặng loại 1, 6, 7: dùng thành phần hóa học mới nhất từ công thức phối tạo ra nó (không dùng CTP_ChiTiet_Quang_TPHH)
             var chemDict = new Dictionary<int, List<TPHHValue>>();
             foreach (var ctq in ctqs)
             {
-                var editedChems = allEditedChems
-                    .Where(x => x.CTP_ChiTiet_Quang_ID == ctq.a.ID)
-                    .Select(x => x.TPHHValue)
-                    .ToList();
-                
-                if (editedChems.Any())
+                int oreId = ctq.q.ID;
+                if (ctq.q.ID_LoaiQuang == loaiTron || ctq.q.ID_LoaiQuang == loaiQuangVeVien || ctq.q.ID_LoaiQuang == loaiQuangPA)
                 {
-                    chemDict[ctq.q.ID] = editedChems;
+                    if (producingFormulaByOreId.TryGetValue(oreId, out int producingFormulaId))
+                    {
+                        var computed = await GetComputedOutputChemistryAsync(producingFormulaId, new HashSet<int>(), ct);
+                        chemDict[oreId] = computed.Count > 0 ? computed : (allOriginalChems.Where(x => x.ID_Quang == oreId).Select(x => x.TPHHValue).ToList());
+                    }
+                    else
+                    {
+                        var originalChems = allOriginalChems.Where(x => x.ID_Quang == oreId).Select(x => x.TPHHValue).ToList();
+                        chemDict[oreId] = originalChems;
+                    }
                 }
                 else
                 {
-                    // Fallback về dữ liệu gốc từ Quang_TP_PhanTich
-                    var originalChems = allOriginalChems
-                        .Where(x => x.ID_Quang == ctq.q.ID)
+                    var editedChems = allEditedChems
+                        .Where(x => x.CTP_ChiTiet_Quang_ID == ctq.a.ID)
                         .Select(x => x.TPHHValue)
                         .ToList();
-                    chemDict[ctq.q.ID] = originalChems;
+                    
+                    if (editedChems.Any())
+                        chemDict[oreId] = editedChems;
+                    else
+                        chemDict[oreId] = allOriginalChems.Where(x => x.ID_Quang == oreId).Select(x => x.TPHHValue).ToList();
                 }
             }
 
 
-            // Get current prices for input ores
+            // Get current prices for ores (latest effective price per ore)
             var now = DateTimeOffset.Now;
             var prices = await _db.Set<Quang_Gia_LichSu>().AsNoTracking()
                 .Where(p => !p.Da_Xoa && p.Hieu_Luc_Tu <= now && (p.Hieu_Luc_Den == null || p.Hieu_Luc_Den >= now))
@@ -811,9 +963,9 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                     x.q.ID,
                     x.q.Ten_Quang ?? string.Empty,
                     x.a.Ti_Le_Phan_Tram,
-                    
+                    x.a.Thu_Tu,
                     chems,
-                    x.q.Loai_Quang,
+                    x.q.ID_LoaiQuang,
                     price?.Don_Gia_USD_1Tan,
                     price?.Ty_Gia_USD_VND,
                     price?.Don_Gia_VND_1Tan,
@@ -822,14 +974,17 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                     x.a.Ti_Le_KhaoHao,
                     x.a.KL_VaoLo,
                     x.a.Ti_Le_HoiQuang,
-                    x.a.KL_Nhan
+                    x.a.KL_Nhan,
+                    x.a.SauNung,
+                    x.a.IsNghien ?? false
                 );
             }).ToList();
 
 
-            // Sort inputs: mixed ores (Loai_Quang = 1 hoặc 7) first, then others
+            // Sort inputs: mixed ores (Tron hoặc QuangPA) first, then others
+            // Note: Simplified sorting by ID for now
             chiTiet = chiTiet
-                .OrderBy(c => (c.Loai_Quang == 1 || c.Loai_Quang == 7) ? 0 : 1)
+                .OrderBy(c => c.ID_Quang)
                 .ThenBy(c => c.ID_Quang)
                 .ToList();
 
@@ -847,37 +1002,54 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 .Select(x => x.Milestone)
                 .FirstOrDefaultAsync(ct);
 
-            // Load BangChiPhi items for this formula
-            var costItems = await _db.Set<CTP_BangChiPhi>()
+            // Load BangChiPhi items for this formula (thô, chưa áp giá hiện tại)
+            var rawCostItems = await _db.Set<CTP_BangChiPhi>()
                 .AsNoTracking()
                 .Where(x => x.ID_CongThucPhoi == cong.ID)
-                .Join(_db.Set<Cong_Thuc_Phoi>().AsNoTracking(), 
-                    bcp => bcp.ID_CongThucPhoi, 
-                    ctp => ctp.ID, 
+                .Join(_db.Set<Cong_Thuc_Phoi>().AsNoTracking(),
+                    bcp => bcp.ID_CongThucPhoi,
+                    ctp => ctp.ID,
                     (bcp, ctp) => new { bcp, ctp })
                 .GroupJoin(_db.Set<Quang>().AsNoTracking(),
                     x => x.bcp.ID_Quang,
                     q => q.ID,
                     (x, qs) => new { x.bcp, x.ctp, quang = qs.FirstOrDefault() })
-                .Select(x => new BangChiPhiItem(
+                .ToListAsync(ct);
+
+            // Project costItems (áp giá hiện tại cho LineType = QUANG) trong bộ nhớ
+            var costItems = rawCostItems.Select(x =>
+            {
+                decimal? donGiaVnd = x.bcp.DonGiaVND;
+                decimal donGiaUsd = x.bcp.DonGiaUSD;
+
+                if (x.bcp.LineType == "QUANG" && x.bcp.ID_Quang.HasValue && priceMap.TryGetValue(x.bcp.ID_Quang.Value, out var currentPrice))
+                {
+                    donGiaVnd = currentPrice.Don_Gia_VND_1Tan;
+                    donGiaUsd = currentPrice.Don_Gia_USD_1Tan;
+                }
+
+                return new BangChiPhiItem(
                     x.bcp.ID_CongThucPhoi,
                     x.bcp.ID_Quang,
                     x.bcp.LineType,
                     x.bcp.Tieuhao,
-                    x.bcp.DonGiaVND,
-                    x.bcp.DonGiaUSD,
+                    donGiaVnd,
+                    donGiaUsd,
                     x.ctp.ID_Quang_DauRa,
                     x.quang != null ? x.quang.Ten_Quang : null,
-                    x.quang != null ? x.quang.Loai_Quang : null
-                ))
-                .ToListAsync(ct);
+                    x.quang != null ? x.quang.ID_LoaiQuang : (int?)null,
+                    x.bcp.ChiPhiNghien
+                );
+            }).ToList();
 
             // Nếu milestone = 1 (Thiêu kết), lấy thêm BangChiPhi của các quặng thành phần được phối ra quặng loại 7
             if (milestone == 1)
             {
-                // Tìm các quặng loại 7 trong chiTiet
+                // Tìm các quặng loại 7 (QuangPA) trong chiTiet
+                var loai7LoaiQuangIds = await GetLoaiQuangIdsByEnumAsync((int)Domain.Entities.LoaiQuangEnum.QuangPA, ct);
+
                 var loai7OreIds = chiTiet
-                    .Where(c => c.Loai_Quang == 7)
+                    .Where(c => c.ID_LoaiQuang.HasValue && loai7LoaiQuangIds.Contains(c.ID_LoaiQuang.Value))
                     .Select(c => c.ID_Quang)
                     .ToList();
 
@@ -895,7 +1067,7 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                     {
                         // Lấy BangChiPhi của các quặng thành phần trong các công thức đó
                         // Join với Cong_Thuc_Phoi để lấy ID_Quang_DauRa (quặng loại 7) và Quang để lấy tên
-                        var componentCostItems = await _db.Set<CTP_BangChiPhi>()
+                        var componentCostItemsRaw = await _db.Set<CTP_BangChiPhi>()
                             .AsNoTracking()
                             .Where(x => formulaIdsForLoai7.Contains(x.ID_CongThucPhoi))
                             .Join(_db.Set<Cong_Thuc_Phoi>().AsNoTracking(), 
@@ -906,29 +1078,101 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                                 x => x.bcp.ID_Quang,
                                 q => q.ID,
                                 (x, qs) => new { x.bcp, x.ctp, quang = qs.FirstOrDefault() })
-                            .Select(x => new BangChiPhiItem(
+                            .ToListAsync(ct);
+
+                        var componentCostItems = componentCostItemsRaw.Select(x =>
+                        {
+                            decimal? donGiaVnd = x.bcp.DonGiaVND;
+                            decimal donGiaUsd = x.bcp.DonGiaUSD;
+
+                            if (x.bcp.LineType == "QUANG" && x.bcp.ID_Quang.HasValue && priceMap.TryGetValue(x.bcp.ID_Quang.Value, out var currentPrice))
+                            {
+                                donGiaVnd = currentPrice.Don_Gia_VND_1Tan;
+                                donGiaUsd = currentPrice.Don_Gia_USD_1Tan;
+                            }
+
+                            return new BangChiPhiItem(
                                 x.bcp.ID_CongThucPhoi,
                                 x.bcp.ID_Quang,
                                 x.bcp.LineType,
                                 x.bcp.Tieuhao,
-                                x.bcp.DonGiaVND,
-                                x.bcp.DonGiaUSD,
+                                donGiaVnd,
+                                donGiaUsd,
                                 x.ctp.ID_Quang_DauRa, // Quặng loại 7
                                 x.quang != null ? x.quang.Ten_Quang : null,
-                                x.quang != null ? x.quang.Loai_Quang : (int?)null
-                            ))
-                            .ToListAsync(ct);
+                                x.quang != null ? x.quang.ID_LoaiQuang : (int?)null,
+                                x.bcp.ChiPhiNghien
+                            );
+                        }).ToList();
 
                         // Thêm vào costItems (chỉ lấy các dòng có ID_Quang, không lấy chi phí khác)
                         costItems = costItems.Concat(componentCostItems.Where(x => x.ID_Quang.HasValue)).ToList();
                     }
                 }
+
+                // Sau khi đã có đầy đủ costItems cho Thiêu Kết:
+                // 1) Sắp xếp ChiTietQuang theo Thu_Tu (đã làm ở trên)
+                // 2) Sử dụng thứ tự đó để sắp xếp lại BangChiPhi, và
+                // 3) Đẩy các quặng thành phần của quặng loại 7 lên trên quặng phương án đó
+
+                var orderedCostItems = new List<BangChiPhiItem>();
+                var used = new HashSet<BangChiPhiItem>();
+
+                // Thứ tự quặng theo chiTiet (đã sorted theo Thu_Tu)
+                var oreOrder = chiTiet.Select(c => c.ID_Quang).ToList();
+
+                // Map: ID_Quang -> các dòng chi phí chính (LineType = QUANG) trong công thức hiện tại
+                var mainOutputOreId = cong.ID_Quang_DauRa;
+                var costItemsByOre = costItems
+                    .Where(ci => ci.ID_Quang.HasValue && ci.LineType == "QUANG")
+                    .GroupBy(ci => ci.ID_Quang!.Value)
+                    .ToDictionary(g => g.Key, g => g.ToList());
+
+                // Map: ID_Quang_DauRa (quặng loại 7) -> các dòng chi phí thành phần (đã được load ở trên)
+                var componentByParent = costItems
+                    .Where(ci => ci.ID_Quang.HasValue && ci.ID_Quang_DauRa.HasValue && ci.LineType == "QUANG")
+                    .GroupBy(ci => ci.ID_Quang_DauRa!.Value)
+                    .ToDictionary(g => g.Key, g => g.ToList());
+
+                // Duyệt theo thứ tự chiTietQuang
+                foreach (var oreId in oreOrder)
+                {
+                    var chiTietItem = chiTiet.First(c => c.ID_Quang == oreId);
+                    var isLoai7 = chiTietItem.ID_LoaiQuang.HasValue && loai7LoaiQuangIds.Contains(chiTietItem.ID_LoaiQuang.Value);
+
+                    // Nếu là quặng loại 7: đẩy các thành phần của nó (BangChiPhi có ID_Quang_DauRa = oreId) lên trước
+                    if (isLoai7 && componentByParent.TryGetValue(oreId, out var compList))
+                    {
+                        foreach (var comp in compList.OrderBy(x => x.Ten_Quang ?? string.Empty))
+                        {
+                            if (used.Add(comp))
+                                orderedCostItems.Add(comp);
+                        }
+                    }
+
+                    // Sau đó thêm dòng chi phí chính của quặng này (LineType = QUANG, thuộc công thức hiện tại)
+                    if (costItemsByOre.TryGetValue(oreId, out var mainList))
+                    {
+                        foreach (var main in mainList
+                            // Chỉ giữ các dòng thuộc công thức hiện tại (ID_Quang_DauRa = quặng đầu ra của công thức),
+                            // tránh lặp lại các dòng thành phần đã được xử lý ở trên
+                            .Where(ci => ci.ID_Quang_DauRa == mainOutputOreId || !ci.ID_Quang_DauRa.HasValue))
+                        {
+                            if (used.Add(main))
+                                orderedCostItems.Add(main);
+                        }
+                    }
+                }
+
+                // Thêm các dòng chi phí còn lại (chi phí khác, v.v.) giữ nguyên thứ tự ban đầu
+                var remaining = costItems.Where(ci => !used.Contains(ci)).ToList();
+                costItems = orderedCostItems.Concat(remaining).ToList();
             }
 
             return new CongThucPhoiDetailMinimal(
                 new CongThucInfo(cong.ID, cong.Ma_Cong_Thuc, cong.Ten_Cong_Thuc, cong.Ghi_Chu),
 
-                new QuangChem(quangOut.ID, quangOut.Ma_Quang, quangOut.Ten_Quang ?? string.Empty, outChems),
+                new QuangChem(quangOut.ID, quangOut.Ma_Quang, quangOut.Ten_Quang ?? string.Empty, quangOut.ID_LoaiQuang, outChems),
                 chiTiet,
 
                 rbs,
@@ -1030,7 +1274,7 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                         q => q.ID, 
                         (pa, q) => new QuangKetQuaInfo(
                             q.ID, 
-                            q.Loai_Quang,
+                            q.ID_LoaiQuang,
                             q.Ma_Quang ?? "",
                             q.Ten_Quang ?? ""
                         ))
@@ -1091,7 +1335,7 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                     q => q.ID, 
                     (pa, q) => new QuangKetQuaInfo(
                         q.ID, 
-                        q.Loai_Quang,
+                        q.ID_LoaiQuang,
                         q.Ma_Quang ?? "",
                         q.Ten_Quang ?? ""
                     ))
@@ -1208,7 +1452,7 @@ namespace BE_PHOITRON.Infrastructure.Repositories
             {
                 Ma_Quang = maQuang,
                 Ten_Quang = tenQuang,
-                Loai_Quang = quangOut.Loai_Quang,
+                ID_LoaiQuang = quangOut.ID_LoaiQuang,
                 Dang_Hoat_Dong = true,
                 Da_Xoa = false,
                 Ghi_Chu = quangOut.Ghi_Chu,
@@ -1242,7 +1486,7 @@ namespace BE_PHOITRON.Infrastructure.Repositories
 
             // 2) Clone Cong_Thuc_Phoi
             // Generate mã công thức: CTP-{mã phương án}-{mã gang đích}-{ngaythangnam}
-            var maCongThuc = $"CTP-{planInfo.ID}-{gangDichInfo.Ma_Quang}-{dateStr}";
+            var maCongThuc = $"CTP-{planInfo.ID}-{gangDichInfo.Ma_Quang}";
             
             // Generate tên công thức: CTP - {Tên phương án} - {tên gang đích}
             var tenCongThuc = $"CTP - {planInfo.Ten_Phuong_An} - {gangDichInfo.Ten_Quang}";
@@ -1278,6 +1522,12 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                     ID_Quang_DauVao = mappedOreId,
                     Ti_Le_Phan_Tram = resetRatiosToZero ? 0 : inp.Ti_Le_Phan_Tram,
                     Khau_Hao = inp.Khau_Hao,
+                    Ti_Le_KhaoHao = inp.Ti_Le_KhaoHao,
+                    KL_VaoLo = inp.KL_VaoLo,
+                    Ti_Le_HoiQuang = inp.Ti_Le_HoiQuang,
+                    KL_Nhan = inp.KL_Nhan,
+                    SauNung = inp.SauNung,
+                    IsNghien = inp.IsNghien,
                     Thu_Tu = inp.Thu_Tu,
                     Ghi_Chu = inp.Ghi_Chu,
                     Da_Xoa = false
@@ -1632,6 +1882,7 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                     row.Tieuhao = it.Tieuhao;
                     row.DonGiaVND = it.DonGiaVND;
                     row.DonGiaUSD = it.DonGiaUSD;
+                    row.ChiPhiNghien = it.ChiPhiNghien;
                     _db.Set<Domain.Entities.CTP_BangChiPhi>().Update(row);
                 }
                 else
@@ -1643,7 +1894,8 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                         LineType = it.LineType,
                         Tieuhao = it.Tieuhao,
                         DonGiaVND = it.DonGiaVND,
-                        DonGiaUSD = it.DonGiaUSD
+                        DonGiaUSD = it.DonGiaUSD,
+                        ChiPhiNghien = it.ChiPhiNghien
                     };
                     await _db.Set<Domain.Entities.CTP_BangChiPhi>().AddAsync(add, ct);
                 }
@@ -1818,7 +2070,7 @@ namespace BE_PHOITRON.Infrastructure.Repositories
             {
                 Ma_Quang = maQuangKetQua,
                 Ten_Quang = tenQuangKetQua,
-                Loai_Quang = quangNguon.Loai_Quang, // Giữ nguyên loại (Gang=2, Xỉ=4)
+                ID_LoaiQuang = quangNguon.ID_LoaiQuang, // Giữ nguyên ID_LoaiQuang (Gang hoặc Xỉ)
                 Dang_Hoat_Dong = true,
                 Da_Xoa = false,
                 Ghi_Chu = $"Quặng kết quả cho phương án {phuongAn.Ten_Phuong_An}",
@@ -1848,12 +2100,12 @@ namespace BE_PHOITRON.Infrastructure.Repositories
 
             _db.Quang_TP_PhanTich.AddRange(thanhPhanMoi);
 
-            // Map vào PA_Quang_KQ
+            // Map vào PA_Quang_KQ - ID_LoaiQuang = enum value
             var paQuangKq = new PA_Quang_KQ
             {
                 ID_PhuongAn = idPhuongAn,
                 ID_Quang = quangKetQua.ID,
-                LoaiQuang = quangKetQua.Loai_Quang // 2 = Gang, 4 = Xỉ
+                LoaiQuang = quangKetQua.ID_LoaiQuang // ID_LoaiQuang = enum value (2 = Gang, 4 = Xỉ)
             };
 
             _db.PA_Quang_KQ.Add(paQuangKq);
@@ -1899,8 +2151,10 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 ct);
 
             // Tìm xỉ của gang đích (nếu có)
+            var xiLoaiQuangIds = await GetLoaiQuangIdsByEnumAsync((int)Domain.Entities.LoaiQuangEnum.Xi, ct);
+
             var slagDich = await _db.Quang
-                .FirstOrDefaultAsync(x => x.ID_Quang_Gang == idGangDich && x.Loai_Quang == 4 && !x.Da_Xoa, ct);
+                .FirstOrDefaultAsync(x => x.ID_Quang_Gang == idGangDich && xiLoaiQuangIds.Contains(x.ID_LoaiQuang) && !x.Da_Xoa, ct);
 
             if (slagDich != null)
             {
@@ -1941,7 +2195,7 @@ namespace BE_PHOITRON.Infrastructure.Repositories
             {
                 Ma_Quang = maQuangKetQua,
                 Ten_Quang = tenQuangKetQua,
-                Loai_Quang = quangNguon.Loai_Quang, // Giữ nguyên loại (Gang=2, Xỉ=4)
+                ID_LoaiQuang = quangNguon.ID_LoaiQuang, // Giữ nguyên ID_LoaiQuang (Gang hoặc Xỉ)
                 Dang_Hoat_Dong = true,
                 Da_Xoa = false,
                 Ghi_Chu = $"Quặng kết quả cho phương án {idPhuongAn}",
@@ -1971,12 +2225,12 @@ namespace BE_PHOITRON.Infrastructure.Repositories
 
             _db.Quang_TP_PhanTich.AddRange(thanhPhanMoi);
 
-            // Map vào PA_Quang_KQ
+            // Map vào PA_Quang_KQ - ID_LoaiQuang = enum value
             var paQuangKq = new PA_Quang_KQ
             {
                 ID_PhuongAn = idPhuongAn,
                 ID_Quang = quangKetQua.ID,
-                LoaiQuang = quangKetQua.Loai_Quang // 2 = Gang, 4 = Xỉ
+                LoaiQuang = quangKetQua.ID_LoaiQuang // ID_LoaiQuang = enum value (2 = Gang, 4 = Xỉ)
             };
 
             _db.PA_Quang_KQ.Add(paQuangKq);
@@ -2516,12 +2770,12 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 .Join(_db.Set<Quang>(), 
                     pa => pa.ID_Quang, 
                     q => q.ID, 
-                    (pa, q) => new { q.ID, q.Loai_Quang })
-                .Where(x => x.Loai_Quang == 2 || x.Loai_Quang == 4) // 2 = Gang, 4 = Slag
+                    (pa, q) => new { q.ID, q.ID_LoaiQuang })
+                .Where(x => x.ID_LoaiQuang == (int)Domain.Entities.LoaiQuangEnum.Gang || x.ID_LoaiQuang == (int)Domain.Entities.LoaiQuangEnum.Xi)
                 .ToListAsync(ct);
 
-            var gangQuangId = resultQuangIds.FirstOrDefault(x => x.Loai_Quang == 2)?.ID;
-            var slagQuangId = resultQuangIds.FirstOrDefault(x => x.Loai_Quang == 4)?.ID;
+            var gangQuangId = resultQuangIds.FirstOrDefault(x => x.ID_LoaiQuang == (int)Domain.Entities.LoaiQuangEnum.Gang)?.ID;
+            var slagQuangId = resultQuangIds.FirstOrDefault(x => x.ID_LoaiQuang == (int)Domain.Entities.LoaiQuangEnum.Xi)?.ID;
 
             // Nếu chưa có trong PA_Quang_KQ, tìm từ quặng đầu ra của các công thức phối trong plan
             if (gangQuangId == null && slagQuangId == null)
@@ -2535,12 +2789,12 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                     .Join(_db.Set<Quang>(), 
                         ct => ct, 
                         q => q.ID, 
-                        (ct, q) => new { q.ID, q.Loai_Quang })
-                    .Where(x => x.Loai_Quang == 2 || x.Loai_Quang == 4) // 2 = Gang, 4 = Slag
+                        (ct, q) => new { q.ID, q.ID_LoaiQuang })
+                    .Where(x => x.ID_LoaiQuang == (int)Domain.Entities.LoaiQuangEnum.Gang || x.ID_LoaiQuang == (int)Domain.Entities.LoaiQuangEnum.Xi)
                     .ToListAsync(ct);
 
-                gangQuangId = outputQuangIds.FirstOrDefault(x => x.Loai_Quang == 2)?.ID;
-                slagQuangId = outputQuangIds.FirstOrDefault(x => x.Loai_Quang == 4)?.ID;
+                gangQuangId = outputQuangIds.FirstOrDefault(x => x.ID_LoaiQuang == (int)Domain.Entities.LoaiQuangEnum.Gang)?.ID;
+                slagQuangId = outputQuangIds.FirstOrDefault(x => x.ID_LoaiQuang == (int)Domain.Entities.LoaiQuangEnum.Xi)?.ID;
             }
 
             return (gangQuangId, slagQuangId);
@@ -2703,13 +2957,13 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 .Select(x => x.ID_Quang)
                 .Distinct()
                 .ToList();
-            
-            // Load tất cả Quang_TP_PhanTich cho Gang và Xỉ
+            // Load Quang_TP_PhanTich cho cả quặng đầu ra công thức (Thiêu kết: sio2, tfe, cao...) và Gang/Xỉ (Lò cao)
+            var quangIdsForChem = allQuangDauRaIds.Concat(gangSlagIds).Distinct().ToList();
             var allQuangTPPhanTich = new List<Quang_TP_PhanTich>();
-            if (gangSlagIds.Any())
+            if (quangIdsForChem.Any())
             {
                 allQuangTPPhanTich = await _db.Set<Quang_TP_PhanTich>().AsNoTracking()
-                    .Where(x => gangSlagIds.Contains(x.ID_Quang) && !x.Da_Xoa)
+                    .Where(x => quangIdsForChem.Contains(x.ID_Quang) && !x.Da_Xoa)
                     .ToListAsync(ct);
             }
             
@@ -2743,7 +2997,48 @@ namespace BE_PHOITRON.Infrastructure.Repositories
             var allQuangGiaLichSu = await _db.Set<Quang_Gia_LichSu>().AsNoTracking()
                 .Where(x => allQuangDauRaIds.Contains(x.ID_Quang))
                 .ToListAsync(ct);
-            
+
+            // Công thức phối theo quặng đầu ra (định nghĩa quặng được phối) — dùng cho tỷ lệ quặng con trong TK
+            var formulaIdByOutputOreId = new Dictionary<int, int>();
+            if (includeThieuKet && allQuang.Count > 0)
+            {
+                var sinteringCongThucIds = allLinks.Where(x => x.Milestone == 1).Select(x => x.ID_Cong_Thuc_Phoi).Distinct().ToList();
+                var parentInputOreIds = allChiTietQuang
+                    .Where(x => sinteringCongThucIds.Contains(x.ID_Cong_Thuc_Phoi))
+                    .Select(x => x.ID_Quang_DauVao)
+                    .Distinct()
+                    .ToList();
+                // Chỉ quặng loại 7 (QuangPA) mới lấy công thức phối để trả childComponents (giống GetFormulasByPlanWithDetails)
+                var blendedOreIds = parentInputOreIds
+                    .Where(id => allQuang.TryGetValue(id, out var q) && q.ID_LoaiQuang == (int)Domain.Entities.LoaiQuangEnum.QuangPA)
+                    .ToList();
+                if (blendedOreIds.Count > 0)
+                {
+                    var formulasByOutput = await _db.Set<Cong_Thuc_Phoi>().AsNoTracking()
+                        .Where(x => blendedOreIds.Contains(x.ID_Quang_DauRa) && !x.Da_Xoa)
+                        .OrderByDescending(x => x.Hieu_Luc_Tu)
+                        .ToListAsync(ct);
+                    foreach (var g in formulasByOutput.GroupBy(x => x.ID_Quang_DauRa))
+                    {
+                        var first = g.First();
+                        formulaIdByOutputOreId[g.Key] = first.ID;
+                    }
+                    var additionalIds = formulaIdByOutputOreId.Values.Where(id => !allCongThucIds.Contains(id)).Distinct().ToList();
+                    if (additionalIds.Count > 0)
+                    {
+                        var additionalCongThuc = await _db.Set<Cong_Thuc_Phoi>().AsNoTracking()
+                            .Where(x => additionalIds.Contains(x.ID) && !x.Da_Xoa)
+                            .ToDictionaryAsync(x => x.ID, x => x, ct);
+                        foreach (var kv in additionalCongThuc)
+                            allCongThuc[kv.Key] = kv.Value;
+                        var additionalChiTiet = await _db.Set<CTP_ChiTiet_Quang>().AsNoTracking()
+                            .Where(x => additionalIds.Contains(x.ID_Cong_Thuc_Phoi) && !x.Da_Xoa)
+                            .ToListAsync(ct);
+                        allChiTietQuang = allChiTietQuang.Concat(additionalChiTiet).ToList();
+                    }
+                }
+            }
+
             foreach (var plan in plans)
             {
                 ThieuKetSectionDto? thieuKet = null;
@@ -2753,13 +3048,13 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 // Load Thiêu Kết section if requested
                 if (includeThieuKet)
                 {
-                    thieuKet = await GetThieuKetSectionByPlanOptimizedAsync(plan.ID, allLinks, allCongThuc, allChiTietQuang, allQuang, allQuangTPPhanTich, allTPHH, allThongKeResults, allThongKeFunctions, allQuangGiaLichSu, ct);
+                    thieuKet = await GetThieuKetSectionByPlanOptimizedAsync(plan.ID, allLinks, allCongThuc, allChiTietQuang, allQuang, allQuangTPPhanTich, allTPHH, allThongKeResults, allThongKeFunctions, allQuangGiaLichSu, formulaIdByOutputOreId, ct);
                 }
 
                 // Load Lò Cao section if requested
                 if (includeLoCao)
                 {
-                    loCao = await GetLoCaoSectionByPlanOptimizedAsync(plan.ID, allLinks, allCongThuc, allChiTietQuang, allQuang, allQuangTPPhanTich, allTPHH, allThongKeResults, allThongKeFunctions, allQuangKQ, ct);
+                    loCao = await GetLoCaoSectionByPlanOptimizedAsync(plan.ID, allLinks, allCongThuc, allChiTietQuang, allQuang, allQuangTPPhanTich, allTPHH, allThongKeResults, allThongKeFunctions, allQuangKQ, allQuangGiaLichSu, ct);
                     bangChiPhiLoCao = GetBangChiPhiLoCaoOptimized(plan.ID, allLinks, allCongThuc, allBangChiPhi, allQuang);
                 }
 
@@ -2773,6 +3068,97 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 ));
             }
 
+            return result;
+        }
+
+        public async Task<List<RelatedOreForSummaryDto>> GetRelatedOresByGangDichAsync(int gangDichId, CancellationToken ct = default)
+        {
+            var plans = await _db.Set<Phuong_An_Phoi>().AsNoTracking()
+                .Where(p => p.ID_Quang_Dich == gangDichId && !p.Da_Xoa)
+                .Select(p => p.ID)
+                .ToListAsync(ct);
+            if (plans.Count == 0)
+                return new List<RelatedOreForSummaryDto>();
+
+            var planIds = plans;
+            var allLinks = await _db.Set<PA_LuaChon_CongThuc>().AsNoTracking()
+                .Where(x => planIds.Contains(x.ID_Phuong_An) && !x.Da_Xoa)
+                .ToListAsync(ct);
+            var allCongThucIds = allLinks.Select(x => x.ID_Cong_Thuc_Phoi).Distinct().ToList();
+            if (allCongThucIds.Count == 0)
+                return new List<RelatedOreForSummaryDto>();
+
+            var allChiTietQuang = await _db.Set<CTP_ChiTiet_Quang>().AsNoTracking()
+                .Where(x => allCongThucIds.Contains(x.ID_Cong_Thuc_Phoi) && !x.Da_Xoa)
+                .ToListAsync(ct);
+
+            var oreIds = allChiTietQuang.Select(x => x.ID_Quang_DauVao).Distinct().ToHashSet();
+
+            var allCongThuc = await _db.Set<Cong_Thuc_Phoi>().AsNoTracking()
+                .Where(x => allCongThucIds.Contains(x.ID) && !x.Da_Xoa)
+                .ToDictionaryAsync(x => x.ID, x => x, ct);
+            var allQuang = await _db.Set<Quang>().AsNoTracking()
+                .Where(x => oreIds.Contains(x.ID) && !x.Da_Xoa)
+                .ToDictionaryAsync(x => x.ID, x => x, ct);
+
+            var sinteringCongThucIds = allLinks.Where(x => x.Milestone == 1).Select(x => x.ID_Cong_Thuc_Phoi).Distinct().ToList();
+            var parentInputOreIds = allChiTietQuang
+                .Where(x => sinteringCongThucIds.Contains(x.ID_Cong_Thuc_Phoi))
+                .Select(x => x.ID_Quang_DauVao)
+                .Distinct()
+                .ToList();
+            var blendedOreIds = parentInputOreIds
+                .Where(id => allQuang.TryGetValue(id, out var q) && q.ID_LoaiQuang == (int)Domain.Entities.LoaiQuangEnum.QuangPA)
+                .ToList();
+            if (blendedOreIds.Count > 0)
+            {
+                var formulasByOutput = await _db.Set<Cong_Thuc_Phoi>().AsNoTracking()
+                    .Where(x => blendedOreIds.Contains(x.ID_Quang_DauRa) && !x.Da_Xoa)
+                    .ToListAsync(ct);
+                var extraFormulaIds = formulasByOutput.Select(x => x.ID).Distinct().ToList();
+                var extraChiTiet = await _db.Set<CTP_ChiTiet_Quang>().AsNoTracking()
+                    .Where(x => extraFormulaIds.Contains(x.ID_Cong_Thuc_Phoi) && !x.Da_Xoa)
+                    .ToListAsync(ct);
+                foreach (var c in extraChiTiet)
+                    oreIds.Add(c.ID_Quang_DauVao);
+            }
+
+            var excludeLoai = new HashSet<int> { (int)Domain.Entities.LoaiQuangEnum.Gang, (int)Domain.Entities.LoaiQuangEnum.Xi, (int)Domain.Entities.LoaiQuangEnum.QuangPA };
+            var quangToReturn = await _db.Set<Quang>().AsNoTracking()
+                .Where(x => oreIds.Contains(x.ID) && !x.Da_Xoa && !excludeLoai.Contains(x.ID_LoaiQuang))
+                .OrderBy(x => x.Ten_Quang)
+                .ToListAsync(ct);
+            if (quangToReturn.Count == 0)
+                return new List<RelatedOreForSummaryDto>();
+
+            var now = DateTimeOffset.Now;
+            var priceList = await _db.Set<Quang_Gia_LichSu>().AsNoTracking()
+                .Where(x => oreIds.Contains(x.ID_Quang) && !x.Da_Xoa && x.Hieu_Luc_Tu <= now && (x.Hieu_Luc_Den == null || x.Hieu_Luc_Den >= now))
+                .ToListAsync(ct);
+            var priceByQuang = priceList
+                .GroupBy(x => x.ID_Quang)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.Hieu_Luc_Tu).First());
+
+            decimal? tyGia = null;
+            var firstPrice = priceList.FirstOrDefault();
+            if (firstPrice != null)
+                tyGia = firstPrice.Ty_Gia_USD_VND;
+
+            var result = new List<RelatedOreForSummaryDto>();
+            foreach (var q in quangToReturn)
+            {
+                priceByQuang.TryGetValue(q.ID, out var price);
+                result.Add(new RelatedOreForSummaryDto(
+                    q.ID,
+                    q.Ma_Quang ?? "",
+                    q.Ten_Quang ?? "",
+                    q.ID_LoaiQuang,
+                    price?.Don_Gia_USD_1Tan,
+                    price?.Don_Gia_VND_1Tan,
+                    price?.Ty_Gia_USD_VND ?? tyGia,
+                    price?.Hieu_Luc_Tu
+                ));
+            }
             return result;
         }
 
@@ -2841,6 +3227,13 @@ namespace BE_PHOITRON.Infrastructure.Repositories
 
         // ========== OPTIMIZED METHODS FOR BATCH LOADING ==========
 
+        /// <summary>Chuẩn hóa tỷ lệ phần trăm: nếu DB lưu 0-1 (ví dụ 0.5 = 50%) thì chuyển sang 0-100.</summary>
+        private static decimal NormalizeTiLePhanTram(decimal value)
+        {
+            if (value > 0 && value <= 1) return value * 100m;
+            return value;
+        }
+
         private Task<ThieuKetSectionDto> GetThieuKetSectionByPlanOptimizedAsync(
             int planId, 
             List<PA_LuaChon_CongThuc> allLinks, 
@@ -2852,6 +3245,7 @@ namespace BE_PHOITRON.Infrastructure.Repositories
             List<PA_ThongKe_Result> allThongKeResults,
             Dictionary<int, ThongKe_Function> allThongKeFunctions,
             List<Quang_Gia_LichSu> allQuangGiaLichSu,
+            IReadOnlyDictionary<int, int> formulaIdByOutputOreId,
             CancellationToken ct = default)
         {
             // 1) Lấy liên kết công thức Thiêu Kết của plan
@@ -2861,74 +3255,53 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 .FirstOrDefault();
             
             if (link == null || !allCongThuc.TryGetValue(link.ID_Cong_Thuc_Phoi, out var congThuc))
-                return Task.FromResult(new ThieuKetSectionDto(new List<ThieuKetOreComponentDto>(), null, null, null, null, null, null));
+                return Task.FromResult(new ThieuKetSectionDto(new List<ThieuKetOreComponentDto>(), null, null, null, null, null, null, null, null));
 
             var outputOreId = congThuc.ID_Quang_DauRa;
 
-            // 2) Components: đầu vào trực tiếp + mở rộng 1 cấp nếu quặng phối nội bộ
-            var producingMap = allLinks
-                .Where(x => x.ID_Phuong_An == planId)
-                .Join(allCongThuc.Values, a => a.ID_Cong_Thuc_Phoi, b => b.ID, (a, b) => new { a, b })
-                .ToDictionary(k => k.b.ID_Quang_DauRa, v => v.a.ID_Cong_Thuc_Phoi);
+            // Chỉ trả ChildComponents (quặng thành phần của quặng loại 7); Components không dùng nữa
+            var components = new List<ThieuKetOreComponentDto>();
 
-            var parentInputs = allChiTietQuang
+            // ChildComponents: chỉ quặng loại 7 — lấy chi tiết CTP_ChiTiet_Quang của công thức phối quặng đó
+            var tkChiTiet = allChiTietQuang
                 .Where(x => x.ID_Cong_Thuc_Phoi == congThuc.ID)
-                .Select(x => new { x.ID_Quang_DauVao, x.Ti_Le_Phan_Tram })
                 .ToList();
-
-            var mixedFormulaIds = parentInputs
-                .Where(x => producingMap.ContainsKey(x.ID_Quang_DauVao))
-                .Select(x => producingMap[x.ID_Quang_DauVao])
-                .Distinct().ToList();
-
-            var mixedInputs = new List<(int ParentOreId, int OreId, decimal RatioInMixed)>();
-            if (mixedFormulaIds.Count > 0)
+            List<ThieuKetOreComponentDto>? childComponents = null;
+            if (formulaIdByOutputOreId != null && formulaIdByOutputOreId.Count > 0)
             {
-                var childs = allChiTietQuang
-                    .Where(x => mixedFormulaIds.Contains(x.ID_Cong_Thuc_Phoi))
-                    .Select(x => new { x.ID_Cong_Thuc_Phoi, x.ID_Quang_DauVao, x.Ti_Le_Phan_Tram })
+                var parentOreIdsWithFormula = tkChiTiet
+                    .Select(x => x.ID_Quang_DauVao)
+                    .Where(id => formulaIdByOutputOreId.ContainsKey(id))
+                    .ToHashSet();
+                var mixedFormulaIdsForChildren = parentOreIdsWithFormula
+                    .Select(id => formulaIdByOutputOreId[id])
+                    .Distinct()
                     .ToList();
-                
-                var reverseMap = allCongThuc.Values
-                    .Where(x => mixedFormulaIds.Contains(x.ID))
-                    .ToDictionary(k => k.ID, v => v.ID_Quang_DauRa);
-                
-                foreach (var c in childs)
-                    if (reverseMap.TryGetValue(c.ID_Cong_Thuc_Phoi, out var parentOre))
-                        mixedInputs.Add((parentOre, c.ID_Quang_DauVao, c.Ti_Le_Phan_Tram));
-            }
 
-            var resultMap = new Dictionary<int, decimal>();
-            foreach (var p in parentInputs)
-            {
-                if (producingMap.ContainsKey(p.ID_Quang_DauVao))
+                if (mixedFormulaIdsForChildren.Count > 0)
                 {
-                    foreach (var ch in mixedInputs.Where(m => m.ParentOreId == p.ID_Quang_DauVao))
-                    {
-                        var contrib = (p.Ti_Le_Phan_Tram * ch.RatioInMixed) / 100m;
-                        if (resultMap.ContainsKey(ch.OreId)) resultMap[ch.OreId] += contrib; else resultMap[ch.OreId] = contrib;
-                    }
-                }
-                else
-                {
-                    if (resultMap.ContainsKey(p.ID_Quang_DauVao)) resultMap[p.ID_Quang_DauVao] += p.Ti_Le_Phan_Tram; else resultMap[p.ID_Quang_DauVao] = p.Ti_Le_Phan_Tram;
+                    var childChiTiet = allChiTietQuang
+                        .Where(x => mixedFormulaIdsForChildren.Contains(x.ID_Cong_Thuc_Phoi))
+                        .OrderBy(x => x.Thu_Tu == null)
+                        .ThenBy(x => x.Thu_Tu)
+                        .ThenBy(x => x.ID_Quang_DauVao)
+                        .ToList();
+
+                    childComponents = childChiTiet
+                        .Select(x => new ThieuKetOreComponentDto(
+                            x.ID_Quang_DauVao,
+                            allQuang.TryGetValue(x.ID_Quang_DauVao, out var q1) ? q1.Ma_Quang ?? string.Empty : string.Empty,
+                            allQuang.TryGetValue(x.ID_Quang_DauVao, out var q2) ? q2.Ten_Quang ?? string.Empty : string.Empty,
+                            x.Ti_Le_Phan_Tram))
+                        .ToList();
                 }
             }
-
-            var components = resultMap
-                .Select(kv => new ThieuKetOreComponentDto(
-                    kv.Key,
-                    allQuang.TryGetValue(kv.Key, out var quang) ? quang.Ma_Quang ?? string.Empty : string.Empty,
-                    allQuang.TryGetValue(kv.Key, out var quang2) ? quang2.Ten_Quang ?? string.Empty : string.Empty,
-                    kv.Value))
-                .OrderBy(x => x.TenQuang)
-                .ToList();
 
             // 3) Summary - sử dụng dữ liệu đã load
             var khauHao = allChiTietQuang
                 .Where(x => x.ID_Cong_Thuc_Phoi == congThuc.ID)
                 .Join(allQuang.Values, a => a.ID_Quang_DauVao, q => q.ID, (a, q) => new { a, q })
-                .Where(x => x.q.Loai_Quang == 1 || x.q.Loai_Quang == 7) // Mixed ores: loại 1 (trộn bình thường) hoặc 7 (trộn trong phương án)
+                .Where(x => x.q.ID_LoaiQuang == (int)Domain.Entities.LoaiQuangEnum.Tron || x.q.ID_LoaiQuang == (int)Domain.Entities.LoaiQuangEnum.QuangPA)
                 .OrderBy(x => x.a.Thu_Tu)
                 .Select(x => x.a.Ti_Le_KhaoHao)
                 .FirstOrDefault();
@@ -2957,6 +3330,7 @@ namespace BE_PHOITRON.Infrastructure.Repositories
             // tK_R2: Tính tỷ lệ cao/sio2 từ thành phần hóa học
             var cao = findChem("cao");
             var sio2 = findChem("sio2");
+            
             decimal? tK_R2 = (cao.HasValue && sio2.HasValue && sio2.Value != 0) 
                 ? cao.Value / sio2.Value 
                 : (decimal?)null;
@@ -2982,9 +3356,11 @@ namespace BE_PHOITRON.Infrastructure.Repositories
 
             return Task.FromResult(new ThieuKetSectionDto(
                 components,
+                childComponents != null && childComponents.Count > 0 ? childComponents : null,
                 khauHao,
                 findChem("sio2"),
                 findChem("tfe"),
+                findChem("cao"),
                 tK_R2,
                 tK_PHAM_VI_VAO_LO,
                 tK_COST
@@ -3002,6 +3378,7 @@ namespace BE_PHOITRON.Infrastructure.Repositories
             List<PA_ThongKe_Result> allThongKeResults,
             Dictionary<int, ThongKe_Function> allThongKeFunctions,
             List<PA_Quang_KQ> allQuangKQ,
+            List<Quang_Gia_LichSu> allQuangGiaLichSu,
             CancellationToken ct = default)
         {
             // 1) Lấy liên kết công thức Lò Cao của plan
@@ -3011,14 +3388,14 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 .FirstOrDefault();
             
             if (link == null || !allCongThuc.TryGetValue(link.ID_Cong_Thuc_Phoi, out var congThuc))
-                return Task.FromResult(new LoCaoSectionDto(new List<LoCaoOreComponentDto>(), null, null, null, null, null, null, null, null, null, null, null, null, null));
+                return Task.FromResult(new LoCaoSectionDto(new List<LoCaoOreComponentDto>(), null, null, null, null, null, null, null, null, null, null, null, null, null, null));
 
-            // 2) Components: chỉ lấy quặng có Loai_Quang != 3 (không phải phụ liệu)
+            // 2) Components: chỉ lấy quặng có ID_LoaiQuang != 3 (không phải phụ liệu - NhienLieu)
             var inputOres = allChiTietQuang
                 .Where(x => x.ID_Cong_Thuc_Phoi == congThuc.ID)
                 .Join(allQuang.Values, a => a.ID_Quang_DauVao, q => q.ID, (a, q) => new { a, q })
-                .Where(x => x.q.Loai_Quang != 3) // Loại trừ phụ liệu
-                .Select(x => new { x.a.ID_Quang_DauVao, x.a.Ti_Le_Phan_Tram, x.q.Ma_Quang, x.q.Ten_Quang, x.q.Loai_Quang })
+                .Where(x => x.q.ID_LoaiQuang != (int)Domain.Entities.LoaiQuangEnum.NhienLieu)
+                .Select(x => new { x.a.ID_Quang_DauVao, x.a.Ti_Le_Phan_Tram, x.q.Ma_Quang, x.q.Ten_Quang, x.q.ID_LoaiQuang })
                 .ToList();
 
             var components = inputOres
@@ -3027,7 +3404,7 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                     x.Ma_Quang ?? string.Empty,
                     x.Ten_Quang ?? string.Empty,
                     x.Ti_Le_Phan_Tram,
-                    x.Loai_Quang))
+                    x.ID_LoaiQuang))
                 .OrderBy(x => x.TenQuang)
                 .ToList();
 
@@ -3074,6 +3451,34 @@ namespace BE_PHOITRON.Infrastructure.Repositories
             var lC_XUAT_LUONG_XI = getStat("SLAG_OUTPUT");
             var lC_MN_TRONG_GANG = findGangChem("mn");
             var lC_TI_TRONG_GANG = findGangChem("ti");
+            var lC_CU_TRONG_GANG = findGangChem("cu");
+
+            // Tổng chi phí = giá quặng đầu ra Lò cao (cùng giá lưu Quang_Gia_LichSu khi phối trong mix)
+            decimal? tongChiPhi = null;
+            var outputOreId = congThuc.ID_Quang_DauRa;
+            var latestPrice = allQuangGiaLichSu?
+                .Where(x => x.ID_Quang == outputOreId && !x.Da_Xoa)
+                .OrderByDescending(x => x.Hieu_Luc_Tu)
+                .FirstOrDefault();
+            if (latestPrice != null)
+                tongChiPhi = latestPrice.Don_Gia_VND_1Tan;
+
+            // AL2O3_XI và TiLeMgO_AL2O3 từ xỉ kết quả (quặng LoaiQuang = Xi)
+            decimal? aL2O3_XI = null;
+            decimal? tiLeMgO_AL2O3 = null;
+            if (slagId.HasValue)
+            {
+                var slagChemicals = allQuangTPPhanTich
+                    .Where(x => x.ID_Quang == slagId.Value)
+                    .Join(allTPHH.Values, a => a.ID_TPHH, b => b.ID, (a, b) => new { code = (b.Ma_TPHH ?? "").ToLower(), a.Gia_Tri_PhanTram })
+                    .ToList();
+                var al2o3 = slagChemicals.FirstOrDefault(x => x.code == "al2o3")?.Gia_Tri_PhanTram;
+                var mgo = slagChemicals.FirstOrDefault(x => x.code == "mgo")?.Gia_Tri_PhanTram;
+                if (al2o3.HasValue)
+                    aL2O3_XI = al2o3.Value;
+                if (al2o3.HasValue && mgo.HasValue && al2o3.Value != 0)
+                    tiLeMgO_AL2O3 = decimal.Round(mgo.Value / al2o3.Value, 3, MidpointRounding.AwayFromZero);
+            }
 
             return Task.FromResult(new LoCaoSectionDto(
                 components,
@@ -3089,7 +3494,11 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 lC_TONG_ZN_VAO_LO,
                 lC_PHAM_VI_VAO_LO,
                 lC_TI_TRONG_GANG,
-                lC_MN_TRONG_GANG
+                lC_CU_TRONG_GANG,
+                lC_MN_TRONG_GANG,
+                tongChiPhi,
+                aL2O3_XI,
+                tiLeMgO_AL2O3
             ));
         }
 
@@ -3125,7 +3534,8 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                     result.Add(new BangChiPhiLoCaoDto(
                         quang.Ten_Quang ?? string.Empty,
                         item.Tieuhao,
-                        item.LineType
+                        item.LineType,
+                        quang.ID_LoaiQuang
                     ));
                 }
             }
@@ -3146,7 +3556,8 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 result.Add(new BangChiPhiLoCaoDto(
                     tenHienThi,
                     item.Tieuhao,
-                    item.LineType
+                    item.LineType,
+                    null
                 ));
             }
 

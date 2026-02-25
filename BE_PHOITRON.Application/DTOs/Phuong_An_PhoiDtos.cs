@@ -100,6 +100,9 @@ public record ThongKeResultUpsertDto(
         decimal? KL_VaoLo = null,
         decimal? Ti_Le_HoiQuang = null,
         decimal? KL_Nhan = null,
+        decimal? SauNung = null, // Sau nung cho Vê viên
+        bool IsNghien = false, // Quặng thành phần có cần nghiền (Vê viên) → set slide toggle cột chi phí nghiền
+        int? Thu_Tu = null, // Thứ tự khi chọn quặng
         IReadOnlyList<TPHHValue>? TP_HoaHocs = null // Thành phần hóa học đã chỉnh sửa
     );
 
@@ -112,7 +115,7 @@ public record ThongKeResultUpsertDto(
     public record QuangThanhPhamDto(
         string Ma_Quang,
         string Ten_Quang,
-        int Loai_Quang,
+        int ID_LoaiQuang,
         IReadOnlyList<QuangTPPhanTichDto> ThanhPhanHoaHoc,
         QuangGiaDto? Gia = null // Giá của quặng đầu ra
     );
@@ -129,7 +132,8 @@ public record ThongKeResultUpsertDto(
         string LineType,
         decimal? Tieuhao,
         decimal? DonGiaVND,
-        decimal DonGiaUSD
+        decimal DonGiaUSD,
+        decimal? ChiPhiNghien = null // Chi phí nghiền cho Vê viên
     );
 
 
