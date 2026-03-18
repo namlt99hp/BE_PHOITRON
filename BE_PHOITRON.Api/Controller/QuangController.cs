@@ -21,6 +21,10 @@ namespace BE_PHOITRON.Api.Controller
             public string? SortDir { get; set; }
             public int[]? LoaiQuang { get; set; }
             public bool? IsGangTarget { get; set; }
+            public DateTimeOffset? TuNgay { get; set; }
+            public DateTimeOffset? DenNgay { get; set; }
+            public string? LoQuang { get; set; }
+            public int? PlanId { get; set; }
         }
 
         [HttpPost("[action]")]
@@ -35,8 +39,12 @@ namespace BE_PHOITRON.Api.Controller
             var sortDir = body?.SortDir;
             var loaiQuang = body?.LoaiQuang;
             var isGangTarget = body?.IsGangTarget;
+            var tuNgay = body?.TuNgay;
+            var denNgay = body?.DenNgay;
+            var loQuang = body?.LoQuang;
+            var planId = body?.PlanId;
 
-            var (total, data) = await service.SearchPagedAsync(page, pageSize, search, sortBy, sortDir, loaiQuang, isGangTarget, ct);
+            var (total, data) = await service.SearchPagedAsync(page, pageSize, search, sortBy, sortDir, loaiQuang, isGangTarget, tuNgay, denNgay, loQuang, planId, ct);
             return Ok(ApiResponse<PagedResult<QuangResponse>>.Ok(new PagedResult<QuangResponse>(total, page, pageSize, data)));
         }
 

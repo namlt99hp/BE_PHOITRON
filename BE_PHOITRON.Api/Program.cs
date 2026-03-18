@@ -34,6 +34,7 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 //app.UseHttpsRedirection();
+app.UseRouting();       // phải trước UseCors để endpoint-aware CORS hoạt động
 app.UseCors("Default");
 
 app.UseAuthorization(); // Không có Authentication nên chỉ check [Authorize] nếu bạn gắn

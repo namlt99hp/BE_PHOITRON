@@ -27,8 +27,15 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 .OrderBy(x => x.ThuTuMacDinh)
                 .ToListAsync(ct);
 
-        public override async Task<(int total, IReadOnlyList<TP_HoaHoc> data)> SearchPagedAsync(
-            int page, int pageSize, string? search = null, string? sortBy = null, string? sortDir = null, CancellationToken ct = default)
+        public async Task<(int total, IReadOnlyList<TP_HoaHoc> data)> SearchPagedAsync(
+            int page,
+            int pageSize,
+            string? search = null,
+            string? sortBy = null,
+            string? sortDir = null,
+            DateTimeOffset? tuNgay = null,
+            DateTimeOffset? denNgay = null,
+            CancellationToken ct = default)
         {
             page = page < 0 ? 0 : page;
             pageSize = pageSize <= 0 || pageSize > 200 ? 20 : pageSize;
@@ -39,6 +46,18 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 q = q.Where(x => x.Ma_TPHH.Contains(search) ||
                                  (x.Ten_TPHH ?? "").Contains(search) ||
                                  (x.Don_Vi ?? "").Contains(search));
+
+            // Filter by created date range if provided (inclusive)
+            if (tuNgay.HasValue)
+            {
+                var fromDate = tuNgay.Value.Date;
+                q = q.Where(x => x.Ngay_Tao >= fromDate);
+            }
+            if (denNgay.HasValue)
+            {
+                var toExclusive = denNgay.Value.Date.AddDays(1);
+                q = q.Where(x => x.Ngay_Tao < toExclusive);
+            }
 
             var total = await q.CountAsync(ct);
 

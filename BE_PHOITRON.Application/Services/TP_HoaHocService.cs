@@ -19,9 +19,16 @@ namespace BE_PHOITRON.Application.Services
         }
 
         public async Task<(int total, IReadOnlyList<TP_HoaHocResponse> data)> SearchPagedAsync(
-            int page, int pageSize, string? search = null, string? sortBy = null, string? sortDir = null, CancellationToken ct = default)
+            int page,
+            int pageSize,
+            string? search = null,
+            string? sortBy = null,
+            string? sortDir = null,
+            DateTimeOffset? tuNgay = null,
+            DateTimeOffset? denNgay = null,
+            CancellationToken ct = default)
         {
-            var (total, entities) = await _tpHHRepo.SearchPagedAsync(page, pageSize, search, sortBy, sortDir, ct);
+            var (total, entities) = await _tpHHRepo.SearchPagedAsync(page, pageSize, search, sortBy, sortDir, tuNgay, denNgay, ct);
             var data = entities.Select(MapToResponse).ToList();
             return (total, data);
         }

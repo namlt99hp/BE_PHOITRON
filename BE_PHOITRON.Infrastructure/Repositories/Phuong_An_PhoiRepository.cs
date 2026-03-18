@@ -271,70 +271,8 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                         }
                     }
 
-                    // Upsert con: CTP_ChiTiet_Quang_TPHH theo từng ctq đã upsert
-                    foreach (var input in dto.ChiTietQuang ?? Enumerable.Empty<CTP_ChiTiet_QuangDto>())
-                    {
-                        if (input.TP_HoaHocs?.Any() != true) continue;
-
-                        var ctqEntity = upserted.First(x => x.ID_Quang_DauVao == input.ID_Quang);
-                        var ctqId = ctqEntity.ID; // với bản ghi mới đã được save ở trên
-
-                        var existingTps = await _db.Set<CTP_ChiTiet_Quang_TPHH>()
-                            .Where(x => x.ID_CTP_ChiTiet_Quang == ctqId)
-                            .ToListAsync(ct);
-                        var byChem = existingTps.ToDictionary(x => x.ID_TPHH, x => x);
-                        var inputChemIds = input.TP_HoaHocs.Select(tp => tp.Id).ToHashSet();
-
-                        var tpToAdd = new List<CTP_ChiTiet_Quang_TPHH>();
-                        foreach (var tp in input.TP_HoaHocs)
-                        {
-                            // Chỉ xử lý nếu PhanTram có giá trị (không null và > 0)
-                            // Nếu null hoặc <= 0, không lưu record (hoặc xóa record cũ nếu có)
-                            if (tp.PhanTram == null || tp.PhanTram <= 0)
-                            {
-                                // Nếu có record cũ, xóa nó (soft delete)
-                                if (byChem.TryGetValue(tp.Id, out var childToDelete))
-                                {
-                                    childToDelete.Da_Xoa = true;
-                                    _db.Set<CTP_ChiTiet_Quang_TPHH>().Update(childToDelete);
-                                }
-                                continue; // Bỏ qua, không tạo record mới
-                            }
-
-                            if (byChem.TryGetValue(tp.Id, out var child))
-                            {
-                                child.Gia_Tri_PhanTram = tp.PhanTram.Value;
-                                child.Da_Xoa = false;
-                                _db.Set<CTP_ChiTiet_Quang_TPHH>().Update(child);
-                            }
-                            else
-                            {
-                                tpToAdd.Add(new CTP_ChiTiet_Quang_TPHH
-                                {
-                                    ID_CTP_ChiTiet_Quang = ctqId,
-                                    ID_TPHH = tp.Id,
-                                    Gia_Tri_PhanTram = tp.PhanTram.Value,
-                                    Da_Xoa = false
-
-                                });
-                            }
-                        }
-
-                        if (tpToAdd.Count > 0)
-                            await _db.Set<CTP_ChiTiet_Quang_TPHH>().AddRangeAsync(tpToAdd, ct);
-
-                        // Soft delete các bản ghi con không còn trong input
-                        foreach (var child in existingTps)
-                        {
-                            if (!inputChemIds.Contains(child.ID_TPHH))
-                            {
-                                child.Da_Xoa = true;
-                            }
-                        }
-                        var toUpdateDeleted = existingTps.Where(x => x.Da_Xoa).ToList();
-                        if (toUpdateDeleted.Count > 0)
-                            _db.Set<CTP_ChiTiet_Quang_TPHH>().UpdateRange(toUpdateDeleted);
-                    }
+                    // Không còn lưu thành phần hóa học quặng thành phần vào CTP_ChiTiet_Quang_TPHH nữa.
+                    // Thành phần hóa học khi hiển thị/chạy tính toán sẽ luôn lấy trực tiếp từ Quang_TP_PhanTich (thời điểm hiện tại).
 
                     // Replace constraints
                     var rbOld = await _db.Set<CTP_RangBuoc_TPHH>().Where(x => x.ID_Cong_Thuc_Phoi == congThuc.ID).ToListAsync(ct);
@@ -877,18 +815,9 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 .ToListAsync(ct);
 
             var inputOreIds = ctqs.Select(x => x.q.ID).Distinct().ToList();
-            
-            // Batch load all chemistry data for input ores
-            var allEditedChems = await _db.Set<CTP_ChiTiet_Quang_TPHH>().AsNoTracking()
-                .Where(x => ctqs.Select(c => c.a.ID).Contains(x.ID_CTP_ChiTiet_Quang) && !x.Da_Xoa)
-                .Join(_db.Set<TP_HoaHoc>().AsNoTracking(), a => a.ID_TPHH, b => b.ID, (a, b) => new { a, b })
-                .OrderBy(x => x.b.Ma_TPHH)
-                .Select(x => new { 
-                    CTP_ChiTiet_Quang_ID = x.a.ID_CTP_ChiTiet_Quang,
-                    TPHHValue = new TPHHValue(x.a.ID_TPHH, x.a.Gia_Tri_PhanTram, null)
-                })
-                .ToListAsync(ct);
 
+            // Luôn lấy thành phần hóa học mới nhất từ bảng Quang_TP_PhanTich của từng quặng thành phần
+            // (không dùng CTP_ChiTiet_Quang_TPHH để tránh dữ liệu cũ khi Quang_TP_PhanTich đã được cập nhật)
             var allOriginalChems = await _db.Set<Quang_TP_PhanTich>().AsNoTracking()
                 .Where(x => inputOreIds.Contains(x.ID_Quang) && !x.Da_Xoa)
                 .OrderBy(x => x.ThuTuTPHH)
@@ -899,45 +828,12 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                 })
                 .ToListAsync(ct);
 
-            const int loaiTron = (int)Domain.Entities.LoaiQuangEnum.Tron;
-            const int loaiQuangVeVien = (int)Domain.Entities.LoaiQuangEnum.QuangVeVien;
-            const int loaiQuangPA = (int)Domain.Entities.LoaiQuangEnum.QuangPA;
-
-            var producingFormulaByOreId = await _db.Set<Cong_Thuc_Phoi>().AsNoTracking()
-                .Where(f => inputOreIds.Contains(f.ID_Quang_DauRa) && !f.Da_Xoa)
-                .ToDictionaryAsync(f => f.ID_Quang_DauRa, f => f.ID, ct);
-
-            // Group chemistry data by ore ID
-            // Với quặng loại 1, 6, 7: dùng thành phần hóa học mới nhất từ công thức phối tạo ra nó (không dùng CTP_ChiTiet_Quang_TPHH)
             var chemDict = new Dictionary<int, List<TPHHValue>>();
             foreach (var ctq in ctqs)
             {
                 int oreId = ctq.q.ID;
-                if (ctq.q.ID_LoaiQuang == loaiTron || ctq.q.ID_LoaiQuang == loaiQuangVeVien || ctq.q.ID_LoaiQuang == loaiQuangPA)
-                {
-                    if (producingFormulaByOreId.TryGetValue(oreId, out int producingFormulaId))
-                    {
-                        var computed = await GetComputedOutputChemistryAsync(producingFormulaId, new HashSet<int>(), ct);
-                        chemDict[oreId] = computed.Count > 0 ? computed : (allOriginalChems.Where(x => x.ID_Quang == oreId).Select(x => x.TPHHValue).ToList());
-                    }
-                    else
-                    {
-                        var originalChems = allOriginalChems.Where(x => x.ID_Quang == oreId).Select(x => x.TPHHValue).ToList();
-                        chemDict[oreId] = originalChems;
-                    }
-                }
-                else
-                {
-                    var editedChems = allEditedChems
-                        .Where(x => x.CTP_ChiTiet_Quang_ID == ctq.a.ID)
-                        .Select(x => x.TPHHValue)
-                        .ToList();
-                    
-                    if (editedChems.Any())
-                        chemDict[oreId] = editedChems;
-                    else
-                        chemDict[oreId] = allOriginalChems.Where(x => x.ID_Quang == oreId).Select(x => x.TPHHValue).ToList();
-                }
+                var chems = allOriginalChems.Where(x => x.ID_Quang == oreId).Select(x => x.TPHHValue).ToList();
+                chemDict[oreId] = chems;
             }
 
 
@@ -3405,6 +3301,8 @@ namespace BE_PHOITRON.Infrastructure.Repositories
                     x.Ten_Quang ?? string.Empty,
                     x.Ti_Le_Phan_Tram,
                     x.ID_LoaiQuang))
+                // Nếu là quặng loại 5 (QuangCo) thì chỉ lấy khi tỷ lệ > 0
+                .Where(x => x.LoaiQuang != (int)Domain.Entities.LoaiQuangEnum.QuangCo || x.TiLePhanTram > 0)
                 .OrderBy(x => x.TenQuang)
                 .ToList();
 

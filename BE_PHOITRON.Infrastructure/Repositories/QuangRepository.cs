@@ -149,7 +149,18 @@ namespace BE_PHOITRON.Infrastructure.Repositories
 
         
         public async Task<(int total, IReadOnlyList<QuangResponse> data)> SearchPagedAsync(
-            int page, int pageSize, string? search = null, string? sortBy = null, string? sortDir = null, int[]? loaiQuang = null, bool? isGangTarget = null, CancellationToken ct = default)
+            int page,
+            int pageSize,
+            string? search = null,
+            string? sortBy = null,
+            string? sortDir = null,
+            int[]? loaiQuang = null,
+            bool? isGangTarget = null,
+            DateTimeOffset? tuNgay = null,
+            DateTimeOffset? denNgay = null,
+            string? loQuang = null,
+            int? planId = null,
+            CancellationToken ct = default)
         {
             page = page < 0 ? 0 : page;
             pageSize = pageSize <= 0 || pageSize > 200 ? 20 : pageSize;
@@ -179,6 +190,68 @@ namespace BE_PHOITRON.Infrastructure.Repositories
             if (loaiQuang != null && loaiQuang.Length > 0)
             {
                 q = q.Where(x => loaiQuang.Contains(x.ID_LoaiQuang));
+            }
+
+            // Filter by batch/lot code (LoQuang.MaLoQuang) if provided
+            if (!string.IsNullOrWhiteSpace(loQuang))
+            {
+                var term = loQuang.Trim();
+                var loQuangIds = await _db.Set<LoQuang>()
+                    .AsNoTracking()
+                    .Where(lq => lq.IsActive && lq.MaLoQuang.Contains(term))
+                    .Select(lq => lq.ID)
+                    .ToListAsync(ct);
+
+                if (loQuangIds.Count > 0)
+                {
+                    q = q.Where(x => x.ID_LoQuang.HasValue && loQuangIds.Contains(x.ID_LoQuang.Value));
+                }
+                else
+                {
+                    // Không có lô nào khớp → trả về rỗng
+                    q = q.Where(x => false);
+                }
+            }
+
+            // If planId is provided: only include QuangPA (loại 7) thuộc chính phương án đó
+            if (planId.HasValue)
+            {
+                var quangPaIds = await _db.Set<PA_LuaChon_CongThuc>()
+                    .AsNoTracking()
+                    .Where(pa => pa.ID_Phuong_An == planId.Value && !pa.Da_Xoa)
+                    .Join(_db.Set<Cong_Thuc_Phoi>().AsNoTracking(),
+                          pa => pa.ID_Cong_Thuc_Phoi,
+                          ctphoi => ctphoi.ID,
+                          (pa, ctphoi) => ctphoi.ID_Quang_DauRa)
+                    .Join(_db.Set<Quang>().AsNoTracking(),
+                          qid => qid,
+                          qu => qu.ID,
+                          (qid, qu) => new { qu.ID, qu.ID_LoaiQuang })
+                    .Where(x => x.ID_LoaiQuang == (int)Domain.Entities.LoaiQuangEnum.QuangPA)
+                    .Select(x => x.ID)
+                    .Distinct()
+                    .ToListAsync(ct);
+
+                if (quangPaIds.Count > 0)
+                {
+                    q = q.Where(x => quangPaIds.Contains(x.ID));
+                }
+                else
+                {
+                    q = q.Where(x => false);
+                }
+            }
+
+            // Filter by created date range if provided (inclusive)
+            if (tuNgay.HasValue)
+            {
+                var fromDate = tuNgay.Value.Date;
+                q = q.Where(x => x.Ngay_Tao >= fromDate);
+            }
+            if (denNgay.HasValue)
+            {
+                var toExclusive = denNgay.Value.Date.AddDays(1);
+                q = q.Where(x => x.Ngay_Tao < toExclusive);
             }
 
             if (!string.IsNullOrWhiteSpace(search))

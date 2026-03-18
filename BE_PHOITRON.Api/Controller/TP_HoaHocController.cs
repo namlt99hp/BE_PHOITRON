@@ -19,9 +19,11 @@ namespace BE_PHOITRON.Api.Controller
             [FromQuery] string? search = null,
             [FromQuery] string? sortBy = null,
             [FromQuery] string? sortDir = null,
+            [FromQuery] DateTimeOffset? tuNgay = null,
+            [FromQuery] DateTimeOffset? denNgay = null,
             CancellationToken ct = default)
         {
-            var (total, data) = await service.SearchPagedAsync(page, pageSize, search, sortBy, sortDir, ct);
+            var (total, data) = await service.SearchPagedAsync(page, pageSize, search, sortBy, sortDir, tuNgay, denNgay, ct);
             return Ok(ApiResponse<PagedResult<TP_HoaHocResponse>>.Ok(new PagedResult<TP_HoaHocResponse>(total, page, pageSize, data)));
         }
 

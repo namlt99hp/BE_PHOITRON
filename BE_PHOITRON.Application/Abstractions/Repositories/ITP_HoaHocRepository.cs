@@ -10,7 +10,14 @@ namespace BE_PHOITRON.Application.Abstractions.Repositories
         Task<IReadOnlyList<TP_HoaHoc>> GetActiveAsync(CancellationToken ct = default);
         Task<IReadOnlyList<TP_HoaHoc>> GetDefaultChemsAsync(CancellationToken ct = default); // Lấy các TPHH có ThuTuMacDinh được set
         Task<(int total, IReadOnlyList<TP_HoaHoc> data)> SearchPagedAsync(
-            int page, int pageSize, string? search = null, string? sortBy = null, string? sortDir = null, CancellationToken ct = default);
+            int page,
+            int pageSize,
+            string? search = null,
+            string? sortBy = null,
+            string? sortDir = null,
+            DateTimeOffset? tuNgay = null,
+            DateTimeOffset? denNgay = null,
+            CancellationToken ct = default);
         Task<bool> DeleteAsync(int id, CancellationToken ct = default);
     }
 }

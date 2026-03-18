@@ -7,7 +7,14 @@ namespace BE_PHOITRON.Application.Services.Interfaces
     {
         // CRUD Operations
         Task<(int total, IReadOnlyList<TP_HoaHocResponse> data)> SearchPagedAsync(
-            int page, int pageSize, string? search = null, string? sortBy = null, string? sortDir = null, CancellationToken ct = default);
+            int page,
+            int pageSize,
+            string? search = null,
+            string? sortBy = null,
+            string? sortDir = null,
+            DateTimeOffset? tuNgay = null,
+            DateTimeOffset? denNgay = null,
+            CancellationToken ct = default);
         
         Task<TP_HoaHocResponse?> GetByIdAsync(int id, CancellationToken ct = default);
         Task<int> CreateAsync(TP_HoaHocCreateDto dto, CancellationToken ct = default);

@@ -28,9 +28,20 @@ namespace BE_PHOITRON.Application.Services
         }
 
         public async Task<(int total, IReadOnlyList<QuangResponse> data)> SearchPagedAsync(
-            int page, int pageSize, string? search = null, string? sortBy = null, string? sortDir = null, int[]? loaiQuang = null, bool? isGangTarget = null, CancellationToken ct = default)
+            int page,
+            int pageSize,
+            string? search = null,
+            string? sortBy = null,
+            string? sortDir = null,
+            int[]? loaiQuang = null,
+            bool? isGangTarget = null,
+            DateTimeOffset? tuNgay = null,
+            DateTimeOffset? denNgay = null,
+            string? loQuang = null,
+            int? planId = null,
+            CancellationToken ct = default)
         {
-            var (total, data) = await _quangRepo.SearchPagedAsync(page, pageSize, search, sortBy, sortDir, loaiQuang, isGangTarget, ct);
+            var (total, data) = await _quangRepo.SearchPagedAsync(page, pageSize, search, sortBy, sortDir, loaiQuang, isGangTarget, tuNgay, denNgay, loQuang, planId, ct);
             return (total, data);
         }
 

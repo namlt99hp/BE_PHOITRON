@@ -23,6 +23,10 @@ namespace BE_PHOITRON.Application.Abstractions.Repositories
             string? sortDir = null,
             int[]? loaiQuang = null,
             bool? isGangTarget = null,
+            DateTimeOffset? tuNgay = null,
+            DateTimeOffset? denNgay = null,
+            string? loQuang = null,
+            int? planId = null,
             CancellationToken ct = default);
 
         Task<QuangDetailResponse?> GetDetailByIdAsync(int id, CancellationToken ct = default);
